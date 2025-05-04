@@ -1,9 +1,8 @@
 import pygame
 from maze import Maze
-from robot import Robot
 
 CELL_SIZE = 40
-WALL_T = 1
+WALL_T = 3
 WALL_COLOR = (30, 30, 30)
 FREE_COLOR = (220, 220, 220)
 ROBOT_COLOR = (200, 30, 30)

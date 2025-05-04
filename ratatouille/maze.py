@@ -1,5 +1,8 @@
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
 class Maze:
     def __init__(self, size=16):
         """
@@ -18,7 +21,7 @@ class Maze:
         """
         self.size = size
         self.grid = [[[False, False, False, False] for _ in range(size)] for _ in range(size)]
-        print(np.array(self.grid).shape)
+        logger.info(np.array(self.grid).shape)
 
     def load_maze(self, text_maze):
         """
@@ -40,26 +43,26 @@ class Maze:
         tf = {"T" : True, "F" : False}
 
         if len(text_maze) != self.size:
-            print("not the right number of rows")
+            logger.error("not the right number of rows")
             return
 
         for row_idx in range(self.size):
             cells = text_maze[row_idx].split("|")
 
             if len(cells) != self.size:
-                print("not the right number of cols for row: ", row_idx)
+                logger.error(f"not the right number of cols for row: {row_idx}")
                 return
 
             for col_idx in range(self.size):
                 cell = cells[col_idx]
 
                 if len(cell) != 4:
-                    print("not the right chars per cell for cell: ", row_idx, col_idx)
+                    logger.error(f"not the right chars per cell for cell: {row_idx}, {col_idx}")
                     return
 
                 for i, wall in enumerate(cell):
                     if wall not in tf.keys():
-                        print("not the right char in cell: ", row_idx, col_idx)
+                        logger.error(f"not the right char in cell: {row_idx}, {col_idx}")
                         return
 
                     self.grid[row_idx][col_idx][i] = tf[wall]
@@ -81,23 +84,11 @@ class Maze:
                 self.grid[row_idx-1][col_idx][2] = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
                 self.grid[row_idx][col_idx][0]   = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
 
-    def load_4x4_test_maze(self):
-        """
-        Load a predefined 4x4 test maze.
-        """
-        layout = [
-            "TFFT|TFTF|TTTF|TTFT",
-            "FTFT|TFFT|TTFF|FTFT",
-            "FTFT|FFFT|FTTF|FTTT",
-            "FFTT|FTTF|TFTT|TTTF"
-        ]
-        self.load_maze(layout)
-
     def check_collision(self, pos_x, pos_y, rad):
         #rad = robot radius
 
         if rad > 0.4:
-            print("Robot way too fat")
+            logger.error("Robot way too fat")
             return True
 
         abs_pos_x = pos_x - float(self.size / 1)
@@ -109,7 +100,7 @@ class Maze:
         cell = self.grid[square_x][square_y]
 
         if square_x < 0 or square_x >= self.size or square_y < 0 or square_y >= self.size:
-            print("Warning: robot out of bounds")
+            logger.warning("Warning: robot out of bounds")
             return True  # Treat out-of-bounds as collision
 
         dist_top    = abs_pos_y - square_y
