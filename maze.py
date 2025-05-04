@@ -89,3 +89,36 @@ class Maze:
             "FFTT|FTTF|TFTT|TTTF"
         ]
         self.load_maze(layout)
+
+    def check_collision(self, pos_x, pos_y, rad):
+        #rad = robot radius
+
+        if rad > 0.4:
+            print("Robot way too fat")
+            return True
+
+        abs_pos_x = pos_x - float(self.size / 1)
+        abs_pos_y = pos_y - float(self.size / 1)
+
+        square_x = int(abs_pos_x)
+        square_y = int(abs_pos_y)
+
+        cell = self.grid[square_x][square_y]
+
+        if square_x < 0 or square_x >= self.size or square_y < 0 or square_y >= self.size:
+            print("Warning: robot out of bounds")
+            return True  # Treat out-of-bounds as collision
+
+        dist_top    = abs_pos_y - square_y
+        dist_right  = (square_x + 1) - abs_pos_x
+        dist_bottom = (square_y + 1) - abs_pos_y
+        dist_left   = abs_pos_x - square_x
+
+        if cell[0] and dist_top < rad:
+            return True  # top wall
+        if cell[1] and dist_right < rad:
+            return True  # right wall
+        if cell[2] and dist_bottom < rad:
+            return True  # bottom wall
+        if cell[3] and dist_left < rad:
+            return True  # left wall
