@@ -30,7 +30,8 @@ class Renderer:
                 pygame.draw.rect(self.screen, FREE_COLOR, rect)
 
                 top, right, bottom, left = walls
-                print(walls)
+                if (row_i, col_i) == (0,0):
+                    print(walls)
                 if top:
                     pygame.draw.line(self.screen, WALL_COLOR, (x,y), (x+CELL_SIZE,y), WALL_T)
                 if right:
