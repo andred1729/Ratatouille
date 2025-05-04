@@ -1,3 +1,5 @@
+import numpy as np
+
 class Maze:
     def __init__(self, size=16):
         """
@@ -15,7 +17,8 @@ class Maze:
             [up, right, down, left], indicating whether each wall is present (True) or absent (False).
         """
         self.size = size
-        self.grid = [[[False, False, False, False] * size] for _ in range(size)]
+        self.grid = [[[False, False, False, False] for _ in range(size)] for _ in range(size)]
+        print(np.array(self.grid).shape)
 
     def load_maze(self, text_maze):
         """
@@ -70,13 +73,13 @@ class Maze:
         # east-west
         for row_idx in range(self.size):
             for col_idx in range(1, self.size-1):
-                self.grid[row_idx][col_idx-1][1] = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][4]
-                self.grid[row_idx][col_idx][4]   = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][4]
+                self.grid[row_idx][col_idx-1][1] = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][3]
+                self.grid[row_idx][col_idx][3]   = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][3]
         # north-south
         for col_idx in range(self.size):
             for row_idx in range(1, self.size-1):
-                self.grid[row_idx-1][col_idx][3] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
-                self.grid[row_idx][col_idx][0] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
+                self.grid[row_idx-1][col_idx][2] = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
+                self.grid[row_idx][col_idx][0]   = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
 
     def load_4x4_test_maze(self):
         """
@@ -115,10 +118,10 @@ class Maze:
         dist_left   = abs_pos_x - square_x
 
         if cell[0] and dist_top < rad:
-            return True  # top wall
+            return True 
         if cell[1] and dist_right < rad:
-            return True  # right wall
+            return True 
         if cell[2] and dist_bottom < rad:
-            return True  # bottom wall
+            return True 
         if cell[3] and dist_left < rad:
-            return True  # left wall
+            return True

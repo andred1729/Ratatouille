@@ -28,7 +28,7 @@ class Robot:
 
 
         # check collision with maze walls
-        if action == 'forward' and not self.maze.is_free(new_x, new_y):
+        if action == 'forward':
             collision = True
             print("Collision")
             return (self.x, self.y, self.theta), collision
