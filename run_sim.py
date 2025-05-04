@@ -6,7 +6,8 @@ from renderer import Renderer
 import random
 
 def main():
-    maze = Maze(size=16)
+    maze = Maze(size=4)
+    maze.load_4x4_test_maze()
     robot = Robot(maze, start=(2,2))
     renderer = Renderer(maze)
 
@@ -33,7 +34,7 @@ def main():
         renderer.draw(robot)
 
         idx += 1
-        time.sleep(0.2)
+        time.sleep(0.1)
 
     pygame.quit()
 

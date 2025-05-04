@@ -40,14 +40,14 @@ class Maze:
             print("not the right number of rows")
             return
 
-        for row_idx in range(size):
+        for row_idx in range(self.size):
             cells = text_maze[row_idx].split("|")
 
             if len(cells) != self.size:
                 print("not the right number of cols for row: ", row_idx)
                 return
 
-            for col_idx in range(cols):
+            for col_idx in range(self.size):
                 cell = cells[col_idx]
 
                 if len(cell) != 4:
@@ -78,10 +78,10 @@ class Maze:
                 self.grid[row_idx-1][col_idx][3] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
                 self.grid[row_idx][col_idx][0] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
 
-    def load_4x4_test_maze(self)
+    def load_4x4_test_maze(self):
         """
         Load a predefined 4x4 test maze.
-        """:
+        """
         layout = [
             "TFFT|TFTF|TTTF|TTFT",
             "FTFT|TFFT|TTFF|FTFT",
