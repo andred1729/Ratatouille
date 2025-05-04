@@ -1,37 +1,91 @@
-import numpy as np
-
 class Maze:
     def __init__(self, size=16):
+        """
+        Initialize a Maze object.
+
+        Parameters:
+        ----------
+        size : int, optional
+            The size of the maze grid (number of rows and columns). Default is 16.
+
+        Attributes:
+        ----------
+        grid : list of list of list of bool
+            A 3D grid representing the maze, where grid[row][col] is a list of four booleans:
+            [up, right, down, left], indicating whether each wall is present (True) or absent (False).
+        """
         self.size = size
-        # 0 = free cell, 1 = wall
-        self.grid = np.ones((size, size), dtype=int)
-        self._load_test_maze()
+        self.grid = [[[False, False, False, False] * size] for _ in range(size)]
 
+    def load_maze(self, text_maze):
+        """
+        Load maze layout from a text-based description.
 
-    def _load_test_maze(self):
+        Parameters:
+        ----------
+        text_maze : list of str
+            A list of strings, each representing a row in the maze.
+            Each row string contains cell descriptions separated by '|'.
+            Each cell description is a 4-character string of 'T' (True) or 'F' (False)
+            representing walls [up, right, down, left].
+
+        Notes:
+        -----
+        - This method validates the input for correct row/column counts and wall characters.
+        - After loading, it calls `and_maze()` to ensure walls are mutually consistent between adjacent cells.
+        """
+        tf = {"T" : True, "F" : False}
+
+        if len(text_maze) != self.size:
+            print("not the right number of rows")
+            return
+
+        for row_idx in range(size):
+            cells = text_maze[row_idx].split("|")
+
+            if len(cells) != self.size:
+                print("not the right number of cols for row: ", row_idx)
+                return
+
+            for col_idx in range(cols):
+                cell = cells[col_idx]
+
+                if len(cell) != 4:
+                    print("not the right chars per cell for cell: ", row_idx, col_idx)
+                    return
+
+                for i, wall in enumerate(cell):
+                    if wall not in tf.keys():
+                        print("not the right char in cell: ", row_idx, col_idx)
+                        return
+
+                    self.grid[row_idx][col_idx][i] = tf[wall]
+
+        self.and_maze()
+
+    def and_maze(self):
+        """
+        Ensure wall consistency between adjacent cells.
+        """
+        # east-west
+        for row_idx in range(self.size):
+            for col_idx in range(1, self.size-1):
+                self.grid[row_idx][col_idx-1][1] = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][4]
+                self.grid[row_idx][col_idx][4]   = self.grid[row_idx][col_idx-1][1] and self.grid[row_idx][col_idx][4]
+        # north-south
+        for col_idx in range(self.size):
+            for row_idx in range(1, self.size-1):
+                self.grid[row_idx-1][col_idx][3] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
+                self.grid[row_idx][col_idx][0] = self.grid[row_idx-1][col_idx][3] and self.grid[row_idx][col_idx][0]
+
+    def load_4x4_test_maze(self)
+        """
+        Load a predefined 4x4 test maze.
+        """:
         layout = [
-            "1111111111111111",
-            "1000000100000001",
-            "1000000101111101",
-            "1000010001000001",
-            "1111011110111101",
-            "1001000000100101",
-            "1011011111101101",
-            "1000010000000001",
-            "1011110111111101",
-            "1000000100000001",
-            "1111101110111101",
-            "1000100010001001",
-            "1010111011101011",
-            "1000000000000001",
-            "1111111111111111",
-            "1111111111111111"
+            "TFFT|TFTF|TTTF|TTFT",
+            "FTFT|TFFT|TTFF|FTFT",
+            "FTFT|FFFT|FTTF|FTTT",
+            "FFTT|FTTF|TFTT|TTTF"
         ]
-        for y,row in enumerate(layout):
-            self.grid[y,:] = [int(c) for c in row]
-
-    def is_free(self, x, y):
-        """Return True if (x,y) is inside bounds and not a wall."""
-        if not (0 <= x < self.size and 0 <= y < self.size):
-            return False
-        return self.grid[y, x] == 0
+        self.load_maze(layout)
