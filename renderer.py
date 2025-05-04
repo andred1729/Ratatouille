@@ -1,4 +1,6 @@
 import pygame
+from maze import Maze
+from robot import Robot
 
 CELL_SIZE = 40
 WALL_T = 1
@@ -15,8 +17,11 @@ class Renderer:
         )
 
     def draw(self, robot):
-        for row_i, row in enumerate(self.maze):
-            for col_i, flags in enumerate(row):
+
+        self.screen.fill(FREE_COLOR)
+        
+        for row_i, row in enumerate(self.maze.grid):
+            for col_i, walls in enumerate(row):
                 x = col_i * CELL_SIZE
                 y = row_i * CELL_SIZE
 
@@ -24,8 +29,8 @@ class Renderer:
 
                 pygame.draw.rect(self.screen, FREE_COLOR, rect)
 
-                top, right, bottom, left = (c == "T" for c in flags)
-
+                top, right, bottom, left = walls
+                print(walls)
                 if top:
                     pygame.draw.line(self.screen, WALL_COLOR, (x,y), (x+CELL_SIZE,y), WALL_T)
                 if right:
