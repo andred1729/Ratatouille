@@ -3,7 +3,7 @@ import logging
 import pygame
 from math import pi
 from ratatouille.maze import Maze
-from ratatouille.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
+from ratatouille.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR, TEST_4BY4
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,13 @@ def angle_wrap(theta_deg):
     return ((theta_deg + 180) % 360) - 180
 
 class RatEnv:
-    def __init__(self, size=4):
+    def __init__(self, size=4, text_maze=TEST_4BY4):
         # Maze and robot state
         self.size = size
-        self.maze = Maze(size)
+        self.maze = Maze(size, text_maze)
         self.x = -(self.size / 2 - 0.5)
-        self.y = self.size / 2 - 0.5
-        self.theta = -pi / 2
+        self.y = -(self.size / 2 - 0.5)
+        self.theta = pi / 2
         self.vl = 0
         self.vr = 0
         self.dt = 0.1
@@ -33,10 +33,12 @@ class RatEnv:
 
         # Visualization
         pygame.init()
+        self.font = pygame.font.SysFont("Arial", 16)
         self.cell_size = SCALING[size]
         self.screen = pygame.display.set_mode((size * self.cell_size, size * self.cell_size))
         pygame.display.set_caption("RatEnv Visualization")
 
+        # logging
         logger.info("Initialized RatEnv")
         logger.info(self.to_string())
 
@@ -66,6 +68,8 @@ class RatEnv:
 
         self.update_state()
         logger.info(self.to_string())
+        
+        return self.state
 
     def render(self):
         self.screen.fill(FREE_COLOR)
@@ -85,6 +89,13 @@ class RatEnv:
                     pygame.draw.line(self.screen, WALL_COLOR, (x, y + self.cell_size), (x + self.cell_size, y + self.cell_size), WALL_T)
                 if left:
                     pygame.draw.line(self.screen, WALL_COLOR, (x, y), (x, y + self.cell_size), WALL_T)
+
+                # draw distance
+                
+                dist = self.maze.dist[row_i][col_i]
+                text_surf = self.font.render(str(dist), True, (0, 0, 0))
+                text_rect = text_surf.get_rect(center=(x + self.cell_size // 2, y + self.cell_size // 2))
+                self.screen.blit(text_surf, text_rect)
 
         
         screen_x = int((self.x + self.size / 2) * self.cell_size)
@@ -132,6 +143,4 @@ class RatEnv:
             (0, 0, 255),
             [(triangle_tip_x, triangle_tip_y), (left_x, left_y), (right_x, right_y)]
         )
-
-
         pygame.display.flip()

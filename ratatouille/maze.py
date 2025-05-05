@@ -1,10 +1,10 @@
 import numpy as np
-
+from collections import deque
 import logging
+from ratatouille.const import TEST_4BY4
 logger = logging.getLogger(__name__)
-
 class Maze:
-    def __init__(self, size=16):
+    def __init__(self, size=4, text_maze=TEST_4BY4):
         """
         Initialize a Maze object.
 
@@ -21,6 +21,8 @@ class Maze:
         """
         self.size = size
         self.grid = [[[False, False, False, False] for _ in range(size)] for _ in range(size)]
+        self.load_maze(text_maze)
+        self.dist = self.compute_min_dist_to_center()
         logger.info(np.array(self.grid).shape)
 
     def load_maze(self, text_maze):
@@ -116,3 +118,36 @@ class Maze:
             return True 
         if cell[3] and dist_left < rad:
             return True
+
+    def compute_min_dist_to_center(self):
+        dist = [[-1 for _ in range(self.size)] for _ in range(self.size)]
+        queue = deque()
+
+        # Identify the 4 center cells
+        centers = [
+            (self.size // 2 - 1, self.size // 2 - 1),
+            (self.size // 2 - 1, self.size // 2),
+            (self.size // 2,     self.size // 2 - 1),
+            (self.size // 2,     self.size // 2),
+        ]
+
+        for r, c in centers:
+            dist[r][c] = 0
+            queue.append((r, c))
+
+        directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # up, right, down, left
+
+        while queue:
+            r, c = queue.popleft()
+            for d, (dr, dc) in enumerate(directions):
+                nr, nc = r + dr, c + dc
+                # Bounds check
+                if 0 <= nr < self.size and 0 <= nc < self.size:
+                    # Wall check: there must be no wall between (r, c) and (nr, nc)
+                    if not self.grid[r][c][d] and dist[nr][nc] == -1:
+                        # Also check the opposite wall on the neighbor
+                        if not self.grid[nr][nc][(d + 2) % 4]:
+                            dist[nr][nc] = dist[r][c] + 1
+                            queue.append((nr, nc))
+
+        return np.array(dist)

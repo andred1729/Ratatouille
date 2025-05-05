@@ -1,17 +1,16 @@
-from ratatouille.ratenv import RatEnv
 import logging
 import pygame
 import time
-from ratatouille.const import MAZE_LAYOUT
+from ratatouille.ratenv import RatEnv
+from ratatouille.const import TEST_4BY4
 
 logging.basicConfig(
-    level = logging.INFO,
+    level = logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S'
 )
 def main():
-    env = RatEnv(4)
-    env.maze.load_maze(MAZE_LAYOUT)
+    env = RatEnv(4, TEST_4BY4)
     running = True
     for _ in range(50):
         if not running:
@@ -19,10 +18,9 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-        env.step([0.5, 0.8])
+        next_obs = env.step([0.7, 0.7])
         env.render()
-        time.sleep(0.1)
-
+        time.sleep(0.4)
 
 
 if __name__ == "__main__":
