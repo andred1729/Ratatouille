@@ -7,3 +7,8 @@
 
 # To run
 Run `python train.py` in the project folder.
+
+Optional argument:
+- `size` (default = 4): size of the maze
+
+e.g. `python train.py --size=8`

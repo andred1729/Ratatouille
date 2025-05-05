@@ -1,10 +1,10 @@
 import numpy as np
 from collections import deque
 import logging
-from ratatouille.const import TEST_4BY4
+from ratatouille.const import MAZES
 logger = logging.getLogger(__name__)
 class Maze:
-    def __init__(self, size=4, text_maze=TEST_4BY4):
+    def __init__(self, size=4, text_maze=MAZES[4]):
         """
         Initialize a Maze object.
 

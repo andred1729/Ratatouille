@@ -3,7 +3,7 @@ import logging
 import pygame
 from math import pi
 from ratatouille.maze import Maze
-from ratatouille.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR, TEST_4BY4
+from ratatouille.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def angle_wrap(theta_deg):
     return ((theta_deg + 180) % 360) - 180
 
 class RatEnv:
-    def __init__(self, size=4, text_maze=TEST_4BY4):
+    def __init__(self, size, text_maze):
         # Maze and robot state
         self.size = size
         self.maze = Maze(size, text_maze)
