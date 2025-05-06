@@ -1,17 +1,16 @@
 import numpy as np
 from collections import deque
 import logging
-from ratatouille.const import MAZES
 logger = logging.getLogger(__name__)
 class Maze:
-    def __init__(self, size=4, text_maze=MAZES[4]):
+    def __init__(self, size, text_maze):
         """
         Initialize a Maze object.
 
         Parameters:
         ----------
-        size : int, optional
-            The size of the maze grid (number of rows and columns). Default is 16.
+        size : int
+            The size of the maze grid (number of rows and columns).
 
         Attributes:
         ----------

@@ -1,3 +1,8 @@
+"""
+This is CHATGPT code that's used to automatically generate mazes.
+
+This Maze class is not the same as the Maze class in maze.py
+"""
 import random
 import math
 from collections import deque

@@ -2,8 +2,7 @@ import logging
 import pygame
 import time
 from absl import app, flags
-from ratatouille.ratenv import RatEnv
-from ratatouille.const import MAZES
+from ratatouille.env import RatEnv, MAZES
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('size', 4, 'Size of the maze')
@@ -30,6 +29,7 @@ def main(argv):
             if event.type == pygame.QUIT:
                 running = False
         next_obs = env.step([0.9, 0.7])
+        logging.info(f"Next position is {next_obs}")
         env.render()
         time.sleep(0.1)
 

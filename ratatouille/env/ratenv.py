@@ -2,8 +2,8 @@ import numpy as np
 import logging
 import pygame
 from math import pi
-from ratatouille.maze import Maze
-from ratatouille.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
+from ratatouille.env.maze import Maze
+from ratatouille.env.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
 
 logger = logging.getLogger(__name__)
 

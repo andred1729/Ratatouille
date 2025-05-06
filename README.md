@@ -5,7 +5,11 @@
 - Max speed is $1$, and cell size is also $1$.
 - That roughly means that it takes 10 time steps of full throttle acceration to get top speed.
 
-# To run
+# Setting up the virtual env
+- Make a virtual environment with python >= 3.10, say `.venv`
+- Run `pip install requirements.txt`
+
+# Run commands
 Run `python train.py` in the project folder.
 
 Optional argument:
