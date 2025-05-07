@@ -1,6 +1,5 @@
 import logging
 import pygame
-import time
 from absl import app, flags
 from ratatouille.env import RatEnv, MAZES
 
@@ -8,7 +7,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('size', 4, 'Size of the maze')
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,  # Change to INFO to reduce debug messages
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S'
 )
@@ -19,20 +18,12 @@ def main(argv):
     if size not in MAZES:
         logging.error(f"Maze size {size} is not available in MAZES.")
         return
-
+    
     env = RatEnv(size, MAZES[size])
-    running = True
-    for _ in range(1000):
-        if not running:
-            break
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-        next_obs = env.step([0.9, 0.7])
-        logging.info(f"Next position is {next_obs}")
-        env.render()
-        time.sleep(0.1)
-
+    
+    # Instead of running a fixed loop with constant input,
+    # use the built-in run method for keyboard control
+    env.run()
 
 if __name__ == "__main__":
     app.run(main)
