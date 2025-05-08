@@ -26,10 +26,11 @@ class RatEnv:
         self.velocity_left = 0
         self.velocity_right = 0
         self.dt = 0.1
-        self.max_speed = 0.5
+        self.max_speed = 0.05
         self.radius = 0.1
         self.diam = 2 * self.radius
         self.running = True
+        self.outcome = 0
 
         self.update_state()
 
@@ -89,8 +90,16 @@ class RatEnv:
         # Check if the new position would cause a collision
         if self.maze.check_collision(new_x, new_y, self.radius):
             logger.info("Collision detected! Simulation ended.")
+            self.outcome = False
             self.running = False
             return self.state
+        
+        if self.maze.check_win(new_x, new_y, self.radius):
+            self.outcome = True
+            logger.info("You win!")
+            self.running = False
+            return self.state
+            
         
         # If no collision, update position
         self.x = new_x
@@ -181,14 +190,25 @@ class RatEnv:
         
         # Draw status text if simulation ended
         if not self.running:
-            game_over_font = pygame.font.SysFont("Arial", 36)
-            game_over_text = game_over_font.render("Simulation Ended - Collision!", True, (255, 0, 0))
-            text_rect = game_over_text.get_rect(center=(self.size * self.cell_size // 2, 30))
-            self.screen.blit(game_over_text, text_rect)
-            
-            restart_text = self.font.render("Press 'R' to restart", True, (0, 0, 0))
-            restart_rect = restart_text.get_rect(center=(self.size * self.cell_size // 2, 70))
-            self.screen.blit(restart_text, restart_rect)
+            if self.outcome: 
+                game_over_font = pygame.font.SysFont("Arial", 36)
+                game_over_text = game_over_font.render("You Win!", True, (255, 0, 0))
+                text_rect = game_over_text.get_rect(center=(self.size * self.cell_size // 2, 30))
+                self.screen.blit(game_over_text, text_rect)
+                
+                restart_text = self.font.render("Press 'R' to restart", True, (0, 0, 0))
+                restart_rect = restart_text.get_rect(center=(self.size * self.cell_size // 2, 70))
+                self.screen.blit(restart_text, restart_rect)
+
+            else:
+                game_over_font = pygame.font.SysFont("Arial", 36)
+                game_over_text = game_over_font.render("Simulation Ended - Collision!", True, (255, 0, 0))
+                text_rect = game_over_text.get_rect(center=(self.size * self.cell_size // 2, 30))
+                self.screen.blit(game_over_text, text_rect)
+                
+                restart_text = self.font.render("Press 'R' to restart", True, (0, 0, 0))
+                restart_rect = restart_text.get_rect(center=(self.size * self.cell_size // 2, 70))
+                self.screen.blit(restart_text, restart_rect)
         
         pygame.display.flip()
     

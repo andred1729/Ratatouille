@@ -4,7 +4,7 @@ from absl import app, flags
 from ratatouille.env import RatEnv, MAZES
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('size', 4, 'Size of the maze')
+flags.DEFINE_integer('size', 8, 'Size of the maze')
 
 logging.basicConfig(
     level=logging.INFO,  # Change to INFO to reduce debug messages

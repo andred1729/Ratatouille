@@ -97,7 +97,11 @@ class Maze:
             return True
 
         return False
-
+    
+    def check_win(self, pos_x, pos_y, rad):
+        entrancefactor = 2 #how deep into the center does the rat have to go to win
+        if abs(pos_x) <= (1 - entrancefactor*rad) and abs(pos_y) <= (1 - entrancefactor*rad):
+            return True
 
 
     def compute_min_dist_to_center(self):
