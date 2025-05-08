@@ -4,6 +4,8 @@ import logging
 import math
 
 logger = logging.getLogger(__name__)
+
+
 class Maze:
     def __init__(self, size, text_maze):
         """
@@ -64,39 +66,54 @@ class Maze:
             for row_idx in range(1, self.size):
                 self.grid[row_idx-1][col_idx][2] = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
                 self.grid[row_idx][col_idx][0]   = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
-
+                
     def check_collision(self, pos_x, pos_y, rad):
-        # Convert world coordinates to grid (maze) coordinates
-
-        maze_x = pos_x + self.size / 2
-        maze_y = pos_y + self.size / 2
-
-        square_x = math.floor(maze_x)
-        square_y = math.floor(maze_y)
-
-
-        # Bounds check
-        if square_x < 0 or square_y < 0 or square_x >= self.size or square_y >= self.size:
-            logger.warning("Robot out of bounds")
+        half = self.size / 2.0
+        # 1) world‐boundary
+        if abs(pos_x) > half - rad or abs(pos_y) > half - rad:
             return True
 
-        # Get wall booleans: [top, right, bottom, left]
-        self.cell = self.grid[square_y][square_x]
+        # 2) convert to grid coords
+        maze_x = pos_x + half
+        maze_y = pos_y + half
+        cell_x = math.floor(maze_x)
+        cell_y = math.floor(maze_y)
 
-        dx = maze_x - square_x  # horizontal offset within the cell
-        dy = maze_y - square_y  # vertical offset within the cell
+        # simple out‐of‐bounds catch
+        if not (0 <= cell_x < self.size and 0 <= cell_y < self.size):
+            return True
 
-        # Each wall is checked for proximity to the robot center within the cell
-        if self.cell[0] and (1 - dy) < rad:             # top wall
-            return True
-        if self.cell[1] and (1 - dx ) < rad:       # right wall
-            return True
-        if self.cell[2] and (dy) < rad:       # bottom wall
-            return True
-        if self.cell[3] and dx < rad:             # left wall
-            return True
+        walls   = self.grid[cell_y][cell_x]
+        dx, dy  = maze_x - cell_x, maze_y - cell_y
+
+        # —— horizontal boundaries ——
+        # bottom edge of this cell
+        if dy < rad:
+            # bottom wall of current cell OR top wall of the cell *below*
+            below = cell_y - 1
+            if walls[2] or (below >= 0 and self.grid[below][cell_x][0]):
+                return True
+
+        # top edge of this cell
+        if (1 - dy) < rad:
+            # top wall of current cell OR bottom wall of the cell *above*
+            above = cell_y + 1
+            if walls[0] or (above < self.size and self.grid[above][cell_x][2]):
+                return True
+
+        # —— vertical boundaries (you can do the same trick for left/right) ——
+        if dx < rad:
+            left = cell_x - 1
+            if walls[3] or (left >= 0 and self.grid[cell_y][left][1]):
+                return True
+
+        if (1 - dx) < rad:
+            right = cell_x + 1
+            if walls[1] or (right < self.size and self.grid[cell_y][right][3]):
+                return True
 
         return False
+
     
     def check_win(self, pos_x, pos_y, rad):
         entrancefactor = 2 #how deep into the center does the rat have to go to win

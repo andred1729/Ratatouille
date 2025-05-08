@@ -26,7 +26,7 @@ class RatEnv:
         self.velocity_left = 0
         self.velocity_right = 0
         self.dt = 0.1
-        self.max_speed = 0.05
+        self.max_speed = 0.4
         self.radius = 0.1
         self.diam = 2 * self.radius
         self.running = True
