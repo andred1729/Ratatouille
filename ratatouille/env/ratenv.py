@@ -109,11 +109,11 @@ class RatEnv:
         self.update_state()
         logger.debug(self.to_string())
         
-        return self.state
+        return self.state, 1.0 / min(np.sqrt(self.x**2 + self.y**2), 0.1)
 
     def render(self):
         self.screen.fill(FREE_COLOR)
-        for row_i, row in enumerate(reversed(self.maze.grid)):
+        for row_i, row in enumerate(self.maze.grid):
             for col_i, walls in enumerate((row)):
                 x = col_i * self.cell_size
                 y = row_i * self.cell_size
@@ -132,10 +132,10 @@ class RatEnv:
                 self.screen.blit(text_surf, text_rect)
                 screen_x = int((self.x + self.size / 2) * self.cell_size)
                 screen_y = int((self.size / 2 - self.y) * self.cell_size)
-                dist = self.maze.dist[row_i][col_i]
-                text_surf = self.font.render(str(dist), True, (0, 0, 0))
-                text_rect = text_surf.get_rect(center=(x + self.cell_size // 2, y + self.cell_size // 2))
-                self.screen.blit(text_surf, text_rect)
+                #dist = self.maze.dist[row_i][col_i]
+                #text_surf = self.font.render(str(dist), True, (0, 0, 0))
+                #text_rect = text_surf.get_rect(center=(x + self.cell_size // 2, y + self.cell_size // 2))
+                #self.screen.blit(text_surf, text_rect)
         # ... (robot drawing) ...
 
         # Draw different color if simulation ended due to collision
