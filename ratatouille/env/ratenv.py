@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pygame
 from math import pi, floor
+from typing import Tuple, Dict
 from ratatouille.env.maze import Maze
 from ratatouille.env.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
 
@@ -31,6 +32,9 @@ class RatEnv:
     state: np.ndarray
     runnable: bool
     _is_terminal_win: bool
+    observation_shape: Tuple
+    action_shape: Tuple
+    info: Dict[str, np.float32]
     def __init__(self, size, text_maze):
         # Maze and robot state 
         self.size = size
@@ -39,9 +43,13 @@ class RatEnv:
         self.max_speed = 0.4
         self.radius = 0.1
         self.diam = 2 * self.radius
+        self.action_shape = (2,)
 
         # Episode tracker
         self.max_episode_length = 5e2
+        
+        # Discounting
+        self.gamma = 0.99
         
         # Reward design
         self.rewards = {
@@ -51,6 +59,7 @@ class RatEnv:
                 
         # Initialization work
         self.reset()
+        self.observation_shape = self.state.shape
         self._vis_init()
         
         logging.info("Initialized RatEnv")
@@ -85,12 +94,13 @@ class RatEnv:
 
     def step(self, action):
         """
-            return next_state, reward, terminated, truncated, info
+            return next_state, reward, terminal, truncated, info
         """
+        info = {}
         if not self.runnable:
             return
-            
-        info = {}
+        
+        self.current_episode_length += 1
         action_left, action_right = action
         
         # Apply friction to slow down when no input is given
@@ -122,45 +132,44 @@ class RatEnv:
         
         logging.debug(self.to_string())
         
+        reward = 0
+        terminal = False
+        truncated = False
         # handle terminal states: collision and getting to the center
         if self.maze.check_collision(new_x, new_y, self.radius):
             logging.info("Collision detected! Simulation ended.")
             self.runnable = False
             self._is_terminal_win = False
             info["is_terminal_win"] = self._is_terminal_win
-            step_output = (self.state, self.rewards["wall"], True, False, info)
-            logging.info(step_output)
-            return step_output
-        
-        if self.maze.check_win(new_x, new_y, self.radius):
+            reward = self.rewards["wall"]
+            terminal = True
+        elif self.maze.check_win(new_x, new_y, self.radius):
             logging.info("You win!")
             self.runnable = False
             self._is_terminal_win = True
             info["is_terminal_win"] = self._is_terminal_win
-            
-            step_output = (self.state, self.rewards["center"], True, False, info)
-            logging.info(step_output)
-            return step_output
-                
-        # handle non-terminal states, calculate the rewards
-        r_maze_dist_to_center = float(self.size)/max(self.maze.dist[self.maze_y][self.maze_x], 1e-5)
-        r_euclidean_dist_to_center = 1.0/ max(np.sqrt(self.x**2 + self.y**2), 1.0)
-        r_stationary = -1e-4/(1e-5 + max(max(self.velocity_left ** 2, self.velocity_right ** 2) - 1e-5, 0))
-        logging.debug(f"r_maze: {r_maze_dist_to_center:.2f}, r_euclid: {r_euclidean_dist_to_center:.2f}, r_stationary: {r_stationary:.2f}")
-        reward =  r_maze_dist_to_center + r_euclidean_dist_to_center + r_stationary
-        
-        # check truncation
-        self.current_episode_length += 1
-        if (self.current_episode_length == self.max_episode_length):
-            logging.info("Episode truncated")
-            self.runnable = False
-            step_output = (self.state, reward, False, True, info)
-            logging.info(step_output)
-            return step_output
-        
-        step_output = (self.state, reward, False, False, info)
+            reward = self.rewards["center"]
+            terminal = True
+        else:
+            # handle non-terminal states, calculate the rewards
+            r_maze_dist_to_center = float(self.size)/max(self.maze.dist[self.maze_y][self.maze_x], 1e-5)
+            r_euclidean_dist_to_center = 1.0/ max(np.sqrt(self.x**2 + self.y**2), 1.0)
+            r_stationary = -1e-4/(1e-5 + max(max(self.velocity_left ** 2, self.velocity_right ** 2) - 1e-5, 0))
+            logging.debug(f"r_maze: {r_maze_dist_to_center:.2f}, r_euclid: {r_euclidean_dist_to_center:.2f}, r_stationary: {r_stationary:.2f}")
+            reward =  r_maze_dist_to_center + r_euclidean_dist_to_center + r_stationary
+            # check truncation
+            if (self.current_episode_length == self.max_episode_length):
+                logging.info("Episode truncated")
+                self.runnable = False
+                truncated = True
+
+        self.current_episode_discounted_return += self.gamma**(self.current_episode_length - 1) * reward
+        info.update({
+            "current_episode_length": self.current_episode_length,
+            "current_episode_discounted_return": self.current_episode_discounted_return
+        })
+        step_output = (self.state, reward, terminal, truncated, info)
         logging.info(step_output)
-        # print(reward)
         return step_output
 
     def render(self):
@@ -268,56 +277,36 @@ class RatEnv:
         self.runnable = True
         self._is_terminal_win = False
         self.current_episode_length = 0
+        self.current_episode_discounted_return = 0
         self._update_state()
         logging.info("Simulation reset")
         logging.info(self.to_string())
         return self.state
         
-    def run(self):
-        """Main game loop with keyboard controls"""
+    def manual_control(self):
+        """Get in keyboard control"""
+        
+        # Continuous key state
+        keys = pygame.key.get_pressed()
+        
+        # Reset actions for this frame
         action_left = 0
         action_right = 0
         
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                
-                # Handle keyboard events
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        self.reset()
-                    if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
+        # Forward/backward movement (both wheels)
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            action_left = self.acceleration
+            action_right = self.acceleration
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            action_left = -self.acceleration
+            action_right = -self.acceleration
+        
+        # Turning (differential wheel speeds)
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            action_left -= self.acceleration * 0.5
+            action_right += self.acceleration * 0.5
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            action_left += self.acceleration * 0.5
+            action_right -= self.acceleration * 0.5
             
-            # Continuous key state
-            keys = pygame.key.get_pressed()
-            
-            # Reset actions for this frame
-            action_left = 0
-            action_right = 0
-            
-            # Forward/backward movement (both wheels)
-            if keys[pygame.K_UP] or keys[pygame.K_w]:
-                action_left = self.acceleration
-                action_right = self.acceleration
-            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                action_left = -self.acceleration
-                action_right = -self.acceleration
-            
-            # Turning (differential wheel speeds)
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                action_left -= self.acceleration * 0.5
-                action_right += self.acceleration * 0.5
-            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                action_left += self.acceleration * 0.5
-                action_right -= self.acceleration * 0.5
-            
-            # Apply actions and update simulation
-            self.step([action_left, action_right])
-            self.render()
-            
-            # Cap the frame rate
-            self.clock.tick(60)
+        return np.array([action_left, action_right])
