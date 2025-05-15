@@ -105,7 +105,6 @@ class Maze:
         if abs(pos_x) <= (1 - entrancefactor*rad) and abs(pos_y) <= (1 - entrancefactor*rad):
             return True
 
-
     def compute_min_dist_to_center(self):
         dist = [[-1 for _ in range(self.size)] for _ in range(self.size)]
         queue = deque()

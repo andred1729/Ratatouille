@@ -1,19 +1,18 @@
-import logging
-import pygame
-from absl import app, flags
+#     level=logging.DEBUG, 
+#     format='%(asctime)s [%(levelname)s] %(message)s',
+#     datefmt='%H:%M:%S',
+#     force=True
+# )
+
+from absl import app, flags, logging
 from ratatouille.env import RatEnv, MAZES
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('size', 8, 'Size of the maze')
+flags.DEFINE_integer('size', 4, 'Size of the maze')
 
-logging.basicConfig(
-    level=logging.INFO,  # Change to INFO to reduce debug messages
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S'
-)
 
-def main(argv):
-    del argv  # Unused
+def main(_):
+    logging.set_verbosity(logging.DEBUG)
     size = FLAGS.size
     if size not in MAZES:
         logging.error(f"Maze size {size} is not available in MAZES.")
