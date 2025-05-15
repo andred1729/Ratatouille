@@ -11,20 +11,20 @@ class ReplayBuffer():
     
     Use observation and state interchangeably
     
-    Store (observation, next_observations, action, reward, terminal, discounts)
+    Store (observation, next_observations, action, reward, terminal, not_terminal)
     
-    Only returns (observation, next_observations, action, reward, terminal, discounts) because discount has same information as terminal
+    Only returns (observation, next_observations, action, reward, not_terminal) because discount has same information as terminal
     """
-    def __init__(self, observation_shape, action_shape, capacity, device):
+    def __init__(self, observation_dim, action_dim, capacity, device):
         self.capacity = capacity
         self.device = device
         
-        self.observations = np.empty((capacity, *observation_shape), dtype=np.float32)
-        self.next_observations = np.empty((capacity, *observation_shape), dtype=np.float32)
-        self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
+        self.observations = np.empty((capacity, observation_dim), dtype=np.float32)
+        self.next_observations = np.empty((capacity, observation_dim), dtype=np.float32)
+        self.actions = np.empty((capacity, action_dim), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
         self.terminals = np.empty((capacity, 1), dtype=bool)
-        self.discounts = np.empty((capacity, 1), dtype=np.float32)
+        self.not_terminals = np.empty((capacity, 1), dtype=np.float32)
         self.insert_index = 0
         self.size = 0
         
@@ -37,7 +37,7 @@ class ReplayBuffer():
         np.copyto(self.rewards[self.insert_index], reward)
         np.copyto(self.next_observations[self.insert_index], next_observation)
         np.copyto(self.terminals[self.insert_index], terminal)
-        np.copyto(self.discounts[self.insert_index], 1.0 - float(terminal))
+        np.copyto(self.not_terminals[self.insert_index], 1.0 - float(terminal))
         self.insert_index = (self.insert_index + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
         
@@ -47,6 +47,6 @@ class ReplayBuffer():
         actions = torch.as_tensor(self.actions[idxs], device = self.device).float()
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device).float()
         next_observations = torch.as_tensor(self.next_observations[idxs], device=self.device).float()
-        discounts = torch.as_tensor(self.discounts[idxs], device = self.device).float()
+        not_terminals = torch.as_tensor(self.not_terminals[idxs], device = self.device).float()
         
-        return observations, actions, rewards, next_observations, discounts
+        return observations, actions, rewards, next_observations, not_terminals

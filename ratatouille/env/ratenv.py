@@ -31,9 +31,9 @@ class RatEnv:
     maze: Maze
     state: np.ndarray
     runnable: bool
-    _is_terminal_win: bool
-    observation_shape: Tuple
-    action_shape: Tuple
+    is_terminal_win: bool
+    observation_dim: int
+    action_dim: int
     info: Dict[str, np.float32]
     def __init__(self, size, text_maze):
         # Maze and robot state 
@@ -43,13 +43,13 @@ class RatEnv:
         self.max_speed = 0.4
         self.radius = 0.1
         self.diam = 2 * self.radius
-        self.action_shape = (2,)
+        self.action_dim = 2
 
         # Episode tracker
         self.max_episode_length = 5e2
         
         # Discounting
-        self.gamma = 0.99
+        self.discount = 0.99
         
         # Reward design
         self.rewards = {
@@ -59,7 +59,7 @@ class RatEnv:
                 
         # Initialization work
         self.reset()
-        self.observation_shape = self.state.shape
+        self.observation_dim = len(self.state)
         self._vis_init()
         
         logging.info("Initialized RatEnv")
@@ -139,22 +139,22 @@ class RatEnv:
         if self.maze.check_collision(new_x, new_y, self.radius):
             logging.info("Collision detected! Simulation ended.")
             self.runnable = False
-            self._is_terminal_win = False
-            info["is_terminal_win"] = self._is_terminal_win
+            self.is_terminal_win = False
+            info["is_terminal_win"] = self.is_terminal_win
             reward = self.rewards["wall"]
             terminal = True
         elif self.maze.check_win(new_x, new_y, self.radius):
             logging.info("You win!")
             self.runnable = False
-            self._is_terminal_win = True
-            info["is_terminal_win"] = self._is_terminal_win
+            self.is_terminal_win = True
+            info["is_terminal_win"] = self.is_terminal_win
             reward = self.rewards["center"]
             terminal = True
         else:
             # handle non-terminal states, calculate the rewards
-            r_maze_dist_to_center = float(self.size)/max(self.maze.dist[self.maze_y][self.maze_x], 1e-5)
+            r_maze_dist_to_center = 10 * (float(self.size) ** 2 - self.maze.dist[self.maze_y][self.maze_x])
             r_euclidean_dist_to_center = 1.0/ max(np.sqrt(self.x**2 + self.y**2), 1.0)
-            r_stationary = -1e-4/(1e-5 + max(max(self.velocity_left ** 2, self.velocity_right ** 2) - 1e-5, 0))
+            r_stationary = -1e-2/(1e-3 + max(max(self.velocity_left ** 2, self.velocity_right ** 2) - 1e-3, 0))
             logging.debug(f"r_maze: {r_maze_dist_to_center:.2f}, r_euclid: {r_euclidean_dist_to_center:.2f}, r_stationary: {r_stationary:.2f}")
             reward =  r_maze_dist_to_center + r_euclidean_dist_to_center + r_stationary
             # check truncation
@@ -163,7 +163,7 @@ class RatEnv:
                 self.runnable = False
                 truncated = True
 
-        self.current_episode_discounted_return += self.gamma**(self.current_episode_length - 1) * reward
+        self.current_episode_discounted_return += self.discount**(self.current_episode_length - 1) * reward
         info.update({
             "current_episode_length": self.current_episode_length,
             "current_episode_discounted_return": self.current_episode_discounted_return
@@ -246,7 +246,7 @@ class RatEnv:
         
         # Draw status text if simulation ended
         if not self.runnable:
-            if self._is_terminal_win: 
+            if self.is_terminal_win: 
                 game_over_font = pygame.font.SysFont("Arial", 36)
                 game_over_text = game_over_font.render("You Win!", True, (255, 0, 0))
                 text_rect = game_over_text.get_rect(center=(self.size * self.cell_size // 2, 30))
@@ -275,7 +275,7 @@ class RatEnv:
         self.velocity_left = 0
         self.velocity_right = 0
         self.runnable = True
-        self._is_terminal_win = False
+        self.is_terminal_win = False
         self.current_episode_length = 0
         self.current_episode_discounted_return = 0
         self._update_state()

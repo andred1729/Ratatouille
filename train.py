@@ -4,7 +4,7 @@ import pygame
 import numpy as np
 from absl import app, flags, logging
 from ratatouille.env import RatEnv, MAZES
-from ratatouille.config import set_seed
+from ratatouille.utils import set_seed
 from ratatouille.data import ReplayBuffer
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('size', 4, 'Size of the maze.')
@@ -26,7 +26,7 @@ def main(_):
     env = RatEnv(size, MAZES[size])
     observation = env.reset()
     
-    buffer = ReplayBuffer(env.observation_shape, env.action_shape, FLAGS.max_steps, device)
+    buffer = ReplayBuffer(env.observation_dim, env.action_dim, FLAGS.max_steps, device)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -43,7 +43,7 @@ def main(_):
         
         if env.runnable:
             # action = env.manual_control()
-            action = np.tanh(np.random.uniform(-1, 1, env.action_shape))
+            action = np.tanh(np.random.uniform(-1, 1, env.action_dim))
             logging.info(action)
             next_observation, reward, terminal, truncated, info = env.step(action)
             buffer.insert(observation, action, reward, next_observation, terminal, truncated)
