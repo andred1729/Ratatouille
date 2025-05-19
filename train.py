@@ -1,6 +1,7 @@
 import sys
 import torch
 import pygame
+import tqdm
 from absl import app, flags, logging
 import wandb
 import numpy as np
@@ -16,9 +17,9 @@ flags.DEFINE_integer('seed', 42, 'Random seed.')
 flags.DEFINE_integer('max_steps', 500000, 'Number of training steps.')
 flags.DEFINE_integer('start_training', 1000, 'Number of training steps.')
 flags.DEFINE_integer('batch_size', 256, 'batch size')
-flags.DEFINE_integer('eval_interval', 1000, 'evaluation frequency')
+flags.DEFINE_integer('eval_interval', 100000, 'evaluation frequency')
 flags.DEFINE_integer('eval_episodes', 10, 'num of episodes to evaluate')
-flags.DEFINE_boolean('render', False, 'whether to render')
+flags.DEFINE_boolean('render_train', False, 'whether to render during training')
 flags.DEFINE_string('run_name', 'default', 'name of the run')
 flags.DEFINE_boolean('log', True, 'whether to log things to wandb')
 flags.DEFINE_integer('partition_size', 10, 'size that subdivides a cell of the big maze into minicells')
@@ -50,35 +51,34 @@ def main(_):
         )
         wandb.config.update(FLAGS)
     
-    for i in range(FLAGS.max_steps):
-        if FLAGS.render:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+    for i in tqdm.tqdm(range(FLAGS.max_steps), smoothing=0.1):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            # Handle keyboard events
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    env.reset()
+                if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
-                
-                # Handle keyboard events
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        env.reset()
-                    if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
         
         assert(env.runnable)
         
-        logging.info(f"Step {i}/{FLAGS.max_steps}")
+        logging.debug(f"Step {i}/{FLAGS.max_steps}")
         logging.debug(f"Received observation = {observation}")
-        # action = env.manual_control()
+        action = env.manual_control()
         # action = np.tanh(np.random.uniform(-1, 1, env.action_dim))
-        action = agent.act(observation)
+        # action = agent.act(observation)
         logging.debug(f"Action: {action}")
         next_observation, reward, terminal, truncated, info = env.step(action)
         replay_buffer.insert(observation, action, reward, next_observation, terminal)
         observation = next_observation
         
         done = terminal or truncated
-        if FLAGS.render:
+        if FLAGS.render_train:
             env.render(f"Step: {i}")
             if done:
                 env.clock.tick(1)

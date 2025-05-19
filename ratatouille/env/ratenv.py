@@ -15,6 +15,29 @@ def bound(x, b):
 def angle_wrap(theta_deg):
     """Wrap angle to [-180, 180] degrees"""
     return ((theta_deg + 180) % 360) - 180
+
+def expcurve(x, k = 4):
+    """Rapidly increasing function f that has f(0) = -1, f(1) = 1. Takes in argument in [0, 1]
+
+    Args:
+        x (float): progress
+
+    Returns:
+        float: reward for distance
+    """
+    return (np.exp(k * x) - np.exp(k))/(np.exp(k) - 1)
+
+# def sigmoid(x, k=4):
+#     """Sigmoid like function with parameter
+
+#     Args:
+#         x (float): progress in [-1, 1]
+#         k (float): steepness
+
+#     Returns:
+#         float: reward for delta distance
+#     """
+#     return 2/(1 + np.exp(-k * x)) - 1
 class RatEnv:
     """
     Class simulating physics and keeping track of interaction
@@ -35,7 +58,7 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, partition_size = 10):
+    def __init__(self, size, text_maze, partition_size = 10, lidar_count = 4):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -47,17 +70,18 @@ class RatEnv:
         self.action_dim = 2
         self.action_range = (-1, 1)
         self.friction = 0.05  # Friction coefficient to slow down the robot when no keys are pressed
-
+        self.lidar_count = lidar_count
+        
         # Episode tracker
-        self.max_episode_length = 1e3
+        self.max_episode_length = 5e2
         
         # Discounting
         self.discount = 0.995
         
         # Reward design
         self.rewards = {
-            "wall": -1e2,
-            "center": 1e3
+            "wall": -5e3,
+            "center": 1e4
         }
                 
         # Initialization work
@@ -65,8 +89,8 @@ class RatEnv:
         self.observation_dim = len(self.state)
         self._vis_init()
         
-        logging.info("Initialized RatEnv")
-        logging.info(self.to_string())
+        logging.debug("Initialized RatEnv")
+        logging.debug(self.to_string())
     
     def _update_state(self):
         self.state = np.array([self.x, self.y, self.theta, self.velocity_left, self.velocity_right])
@@ -143,7 +167,7 @@ class RatEnv:
         
         self.current_episode_length += 1
         old_partition_dist = self.maze.partition_dist[self.partition_maze_y][self.partition_maze_x]
-        
+        old_dist = self.maze.dist[self.maze_y][self.maze_x]
         self.step_physics(action)
         
         logging.debug(self.to_string())
@@ -153,14 +177,14 @@ class RatEnv:
         truncated = False
         # handle terminal states: collision and getting to the center
         if self.maze.check_collision(self.x, self.y, self.radius):
-            logging.info("Collision detected! Simulation ended.")
+            logging.debug("Collision detected! Simulation ended.")
             self.runnable = False
             self.is_terminal_win = False
             info["is_terminal_win"] = self.is_terminal_win
             reward = self.rewards["wall"]
             terminal = True
         elif self.maze.check_win(self.x, self.y, self.radius):
-            logging.info("You win!")
+            logging.debug("You win!")
             self.runnable = False
             self.is_terminal_win = True
             info["is_terminal_win"] = self.is_terminal_win
@@ -168,14 +192,16 @@ class RatEnv:
             terminal = True
         else:
             new_partition_dist = self.maze.partition_dist[self.partition_maze_y][self.partition_maze_x]
-            reward = 0.0
-            reward += (old_partition_dist - new_partition_dist)
-            # just penalize being long-term in general
-            reward += 5 * (1.0-float(new_partition_dist)/np.max(self.maze.partition_dist))**2
-            # logging.info(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, reward: {reward}")
+            new_dist = self.maze.dist[self.maze_y][self.maze_x]
+            reward = 0
+            reward += (old_partition_dist - new_partition_dist)/np.max(self.maze.partition_dist)
+            reward += (old_dist - new_dist)/np.max(self.maze.dist)
+            reward += expcurve(1.0 - float(new_partition_dist)/np.max(self.maze.partition_dist), 2)
+            reward += expcurve(1.0 - float(new_dist)/np.max(self.maze.dist), 2)
+            logging.info(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, old dist: {old_dist}, new dist: {new_dist}, reward: {reward}")
             # check truncation
             if (self.current_episode_length == self.max_episode_length):
-                logging.info("Episode truncated")
+                logging.debug("Episode truncated")
                 self.runnable = False
                 truncated = True
 
@@ -269,7 +295,7 @@ class RatEnv:
         )
         
         # Draw current maze information
-        info_text = self.font.render(f"{added_info} ep: {self.current_episode_length} ret: {self.current_episode_discounted_return}", True, (0, 0, 0))
+        info_text = self.font.render(f"{added_info} ep_len: {self.current_episode_length} ep_ret: {self.current_episode_discounted_return:.2f}", True, (0, 0, 0))
         info_rect = info_text.get_rect(topleft=(220,0))
         self.screen.blit(info_text, info_rect)
         
@@ -294,22 +320,23 @@ class RatEnv:
                 restart_rect = restart_text.get_rect(center=(self.size * self.cell_size // 2, 70))
                 self.screen.blit(restart_text, restart_rect)
 
-        # Lidar
-        lidar_distance = self.maze.lidar(self.x, self.y, self.theta)
+        for y in range(self.lidar_count):
+            # Lidar
+            angle = self.theta + float(y)/self.lidar_count * (2 * pi)
+            lidar_distance = self.maze.lidar(self.x, self.y, angle)
 
-        end_x = self.x + lidar_distance * np.cos(self.theta)
-        end_y = self.y + lidar_distance * np.sin(self.theta)
+            end_x = self.x + lidar_distance * np.cos(angle)
+            end_y = self.y + lidar_distance * np.sin(angle)
 
-        screen_end_x = int((end_x + self.size / 2) * self.cell_size)
-        screen_end_y = int((self.size / 2 - end_y) * self.cell_size)
+            screen_end_x = int((end_x + self.size / 2) * self.cell_size)
+            screen_end_y = int((self.size / 2 - end_y) * self.cell_size)
 
-        # Draw red laser line
-        pygame.draw.line(
-            self.screen,
-            (255, 0, 0), 
-            (screen_x, screen_y), 
-            (screen_end_x, screen_end_y), 
-    )
+            # Draw red laser line
+            pygame.draw.line(
+                self.screen,
+                (255, 0, 0), 
+                (screen_x, screen_y), 
+                (screen_end_x, screen_end_y), )
         
         pygame.display.flip()
     
@@ -325,7 +352,7 @@ class RatEnv:
         self.current_episode_length = 0
         self.current_episode_discounted_return = 0
         self._update_state()
-        logging.info("Simulation reset")
+        logging.debug("Simulation reset")
         return self.state
         
     def manual_control(self):

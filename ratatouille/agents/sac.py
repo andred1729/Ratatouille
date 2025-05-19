@@ -132,8 +132,8 @@ class SACAgent():
             td_error_np = to_np(td_error)
 
         self.critic_optimizer.zero_grad()
-        with torch.autograd.detect_anomaly():
-            critic_loss.backward()
+        # with torch.autograd.detect_anomaly():
+        critic_loss.backward()
 
         self.critic_optimizer.step()
 
@@ -162,8 +162,8 @@ class SACAgent():
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        with torch.autograd.detect_anomaly():
-            self.actor_optimizer.step()
+        # with torch.autograd.detect_anomaly():
+        self.actor_optimizer.step()
 
         # alpha
         # want entropy -log_prob to be equal to target entropy
@@ -171,8 +171,8 @@ class SACAgent():
         alpha_loss = (self.alpha * (-log_prob -
                       self.target_entropy).detach()).mean()
         self.log_alpha_optimizer.zero_grad()
-        with torch.autograd.detect_anomaly():
-            alpha_loss.backward()
+        # with torch.autograd.detect_anomaly():
+        alpha_loss.backward()
         self.log_alpha_optimizer.step()
 
         return {

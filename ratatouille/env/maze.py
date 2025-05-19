@@ -3,8 +3,6 @@ from collections import deque
 import logging
 import math
 
-logger = logging.getLogger(__name__)
-
 
 class Maze:
     def __init__(self, size, text_maze, partition_size):
@@ -28,27 +26,27 @@ class Maze:
         self.partition_size = partition_size
         self.partition_dist = self.compute_min_dist_to_center(self.partition_size)
         self.dist = self.compute_min_dist_to_center(1)
-        logger.info(np.array(self.grid).shape)
+        logging.debug(np.array(self.grid).shape)
         self.cell = 0
 
     def load_maze(self, text_maze):
         tf = {"T": True, "F": False}
         if len(text_maze) != self.size:
-            logger.error("not the right number of rows")
+            logging.error("not the right number of rows")
             return
         for row_idx, row_str in enumerate(text_maze):
             cells = row_str.split("|")
             if len(cells) != self.size:
-                logger.error(f"not the right number of cols for row: {row_idx}")
+                logging.error(f"not the right number of cols for row: {row_idx}")
                 return
             for col_idx in range(self.size):
                 cell = cells[col_idx]
                 if len(cell) != 4:
-                    logger.error(f"not the right chars per cell for cell: {row_idx}, {col_idx}")
+                    logging.error(f"not the right chars per cell for cell: {row_idx}, {col_idx}")
                     return
                 for i, wall in enumerate(cell):
                     if wall not in tf:
-                        logger.error(f"not the right char in cell: {row_idx}, {col_idx}")
+                        logging.error(f"not the right char in cell: {row_idx}, {col_idx}")
                         return
                     self.grid[row_idx][col_idx][i] = tf[wall]
         self.and_maze()
