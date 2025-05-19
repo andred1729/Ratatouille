@@ -2,12 +2,12 @@ from absl import logging
 import sys
 import numpy as np
 import pygame
-from math import pi, floor
+from math import pi, floor, fabs
 from typing import Tuple, Dict
+import matplotlib.cm as cm
 from ratatouille.env.maze import Maze
 from ratatouille.env.const import SCALING, WALL_T, WALL_COLOR, FREE_COLOR, ROBOT_COLOR
 
-# logger = logging.getLogger(__name__)
 
 def bound(x, b):
     return max(-b, min(b, x))
@@ -15,7 +15,6 @@ def bound(x, b):
 def angle_wrap(theta_deg):
     """Wrap angle to [-180, 180] degrees"""
     return ((theta_deg + 180) % 360) - 180
-
 class RatEnv:
     """
     Class simulating physics and keeping track of interaction
@@ -34,27 +33,31 @@ class RatEnv:
     is_terminal_win: bool
     observation_dim: int
     action_dim: int
+    action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze):
+    def __init__(self, size, text_maze, partition_size = 10):
         # Maze and robot state 
         self.size = size
-        self.maze = Maze(size, text_maze)
+        self.maze = Maze(size, text_maze, partition_size)
+        self.partition_size = partition_size
         self.dt = 0.1
         self.max_speed = 0.4
         self.radius = 0.1
         self.diam = 2 * self.radius
         self.action_dim = 2
+        self.action_range = (-1, 1)
+        self.friction = 0.05  # Friction coefficient to slow down the robot when no keys are pressed
 
         # Episode tracker
-        self.max_episode_length = 5e2
+        self.max_episode_length = 1e3
         
         # Discounting
-        self.discount = 0.99
+        self.discount = 0.995
         
         # Reward design
         self.rewards = {
-            "wall": -1e4,
-            "center": 1e4
+            "wall": -1e2,
+            "center": 1e3
         }
                 
         # Initialization work
@@ -72,6 +75,9 @@ class RatEnv:
         # top-left corner is (-self.size/2, self.size/2)
         self.maze_x = floor(self.x - (-self.size/2))
         self.maze_y = floor(self.size/2 - self.y)
+        
+        self.partition_maze_x = floor((self.x - (-self.size/2)) * self.partition_size)
+        self.partition_maze_y = floor((self.size/2 - self.y) * self.partition_size)
     
     def _vis_init(self):
         # Visualization
@@ -85,24 +91,19 @@ class RatEnv:
         self.acceleration = 1.0  # Acceleration constant for keyboard controls
         self.clock = pygame.time.Clock()
         
-        # Add friction to make controls more natural
-        self.friction = 0.05  # Friction coefficient to slow down the robot when no keys are pressed
-
+        self.colormap = cm.get_cmap('plasma')
+        
     def to_string(self):
         return (f"State: x={self.x:.2f}, y={self.y:.2f}, θ={self.theta_deg:.2f}° "
                 f"(wrapped={angle_wrap(self.theta_deg):.2f}°), vl={self.velocity_left:.2f}, vr={self.velocity_right:.2f}")
 
-    def step(self, action):
+    def step_physics(self, action):
+        """Run the physics simulation
+
+        Args:
+            action (2-element array): [acc_l, acc_r]
         """
-            return next_state, reward, terminal, truncated, info
-        """
-        info = {}
-        if not self.runnable:
-            return
-        
-        self.current_episode_length += 1
         action_left, action_right = action
-        
         # Apply friction to slow down when no input is given
         if abs(action_left) < 0.01:
             self.velocity_left *= (1 - self.friction)
@@ -129,6 +130,21 @@ class RatEnv:
         self.y = new_y
         self.theta += dtheta
         self._update_state()
+
+    def step(self, action):
+        """
+            return next_state, reward, terminal, truncated, info
+            
+            takes in action as an action_dim-dimensional numpy array
+        """
+        info = {}
+        if not self.runnable:
+            return
+        
+        self.current_episode_length += 1
+        old_partition_dist = self.maze.partition_dist[self.partition_maze_y][self.partition_maze_x]
+        
+        self.step_physics(action)
         
         logging.debug(self.to_string())
         
@@ -136,14 +152,14 @@ class RatEnv:
         terminal = False
         truncated = False
         # handle terminal states: collision and getting to the center
-        if self.maze.check_collision(new_x, new_y, self.radius):
+        if self.maze.check_collision(self.x, self.y, self.radius):
             logging.info("Collision detected! Simulation ended.")
             self.runnable = False
             self.is_terminal_win = False
             info["is_terminal_win"] = self.is_terminal_win
             reward = self.rewards["wall"]
             terminal = True
-        elif self.maze.check_win(new_x, new_y, self.radius):
+        elif self.maze.check_win(self.x, self.y, self.radius):
             logging.info("You win!")
             self.runnable = False
             self.is_terminal_win = True
@@ -151,12 +167,12 @@ class RatEnv:
             reward = self.rewards["center"]
             terminal = True
         else:
-            # handle non-terminal states, calculate the rewards
-            r_maze_dist_to_center = 10 * (float(self.size) ** 2 - self.maze.dist[self.maze_y][self.maze_x])
-            r_euclidean_dist_to_center = 1.0/ max(np.sqrt(self.x**2 + self.y**2), 1.0)
-            r_stationary = -1e-2/(1e-3 + max(max(self.velocity_left ** 2, self.velocity_right ** 2) - 1e-3, 0))
-            logging.debug(f"r_maze: {r_maze_dist_to_center:.2f}, r_euclid: {r_euclidean_dist_to_center:.2f}, r_stationary: {r_stationary:.2f}")
-            reward =  r_maze_dist_to_center + r_euclidean_dist_to_center + r_stationary
+            new_partition_dist = self.maze.partition_dist[self.partition_maze_y][self.partition_maze_x]
+            reward = 0.0
+            reward += (old_partition_dist - new_partition_dist)
+            # just penalize being long-term in general
+            reward += 5 * (1.0-float(new_partition_dist)/np.max(self.maze.partition_dist))**2
+            # logging.info(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, reward: {reward}")
             # check truncation
             if (self.current_episode_length == self.max_episode_length):
                 logging.info("Episode truncated")
@@ -169,11 +185,21 @@ class RatEnv:
             "current_episode_discounted_return": self.current_episode_discounted_return
         })
         step_output = (self.state, reward, terminal, truncated, info)
-        logging.info(step_output)
+        # logging.info(step_output)
         return step_output
 
-    def render(self):
+    def render(self, added_info):
         self.screen.fill(FREE_COLOR)
+        partition_dist = self.maze.partition_dist
+        partition_dist_max = np.max(partition_dist)
+        for r in range(self.size * self.partition_size):
+            for c in range(self.size * self.partition_size):
+                p = float(partition_dist[r][c])/partition_dist_max
+                color = tuple(int(255 * x) for x in self.colormap(1-p)[:3]) if p >= 0 else (250, 250, 250)
+                cell_width = float(self.cell_size/self.partition_size)
+                rect= pygame.Rect(c * cell_width, r * cell_width, cell_width, cell_width)
+                pygame.draw.rect(self.screen, color, rect)
+        
         for row_i, row in enumerate(self.maze.grid):
             for col_i, walls in enumerate((row)):
                 x = col_i * self.cell_size
@@ -187,15 +213,17 @@ class RatEnv:
                     pygame.draw.line(self.screen, WALL_COLOR, (x, y + self.cell_size), (x + self.cell_size, y + self.cell_size), WALL_T)
                 if left:
                     pygame.draw.line(self.screen, WALL_COLOR, (x, y), (x, y + self.cell_size), WALL_T)
-                dist = self.maze.dist[row_i][col_i]
-                text_surf = self.font.render(str(dist), True, (0, 0, 0))
+                
+                text_surf = self.font.render(str(self.maze.dist[row_i][col_i]), True, (0, 0, 0))
                 text_rect = text_surf.get_rect(center=(x + self.cell_size // 2, y + self.cell_size // 2))
                 self.screen.blit(text_surf, text_rect)
-                screen_x = int((self.x + self.size / 2) * self.cell_size)
-                screen_y = int((self.size / 2 - self.y) * self.cell_size)
+
 
         # Draw different color if simulation ended due to collision
         robot_color = (0, 0, 0) if not self.runnable else ROBOT_COLOR
+        
+        screen_x = int((self.x + self.size / 2) * self.cell_size)
+        screen_y = int((self.size / 2 - self.y) * self.cell_size)
         
         pygame.draw.circle(
             self.screen,
@@ -227,8 +255,9 @@ class RatEnv:
         pygame.draw.line(
             self.screen,
             (0, 0, 255),
-            (screen_x, screen_y),
-            (tip_x, tip_y),
+            (int(screen_x), int(screen_y)),
+            (int(tip_x), int(tip_y)),
+            # (screen_x, screen_y),
             2
         )
 
@@ -236,13 +265,13 @@ class RatEnv:
         pygame.draw.polygon(
             self.screen,
             (0, 0, 255),
-            [(triangle_tip_x, triangle_tip_y), (left_x, left_y), (right_x, right_y)]
+            [(int(triangle_tip_x), int(triangle_tip_y)), (int(left_x), int(left_y)), (int(right_x), int(right_y))]
         )
         
-        # Draw current velocity information
-        velocity_text = self.font.render(f"vL: {self.velocity_left:.2f} vR: {self.velocity_right:.2f} x: {self.x:.2f} y: {self.y:.2f} maze_x: {self.maze_x} maze_y: {self.maze_y} ep: {self.current_episode_length}", True, (0, 0, 0))
-        velocity_rect = velocity_text.get_rect(topleft=(220,0))
-        self.screen.blit(velocity_text, velocity_rect)
+        # Draw current maze information
+        info_text = self.font.render(f"{added_info} ep: {self.current_episode_length} ret: {self.current_episode_discounted_return}", True, (0, 0, 0))
+        info_rect = info_text.get_rect(topleft=(220,0))
+        self.screen.blit(info_text, info_rect)
         
         # Draw status text if simulation ended
         if not self.runnable:
@@ -280,7 +309,6 @@ class RatEnv:
         self.current_episode_discounted_return = 0
         self._update_state()
         logging.info("Simulation reset")
-        logging.info(self.to_string())
         return self.state
         
     def manual_control(self):

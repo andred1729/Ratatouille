@@ -20,6 +20,7 @@ class MLP(nn.Module):
             linear_layer = nn.Linear(current_dim, hidden_dim)
             init.xavier_uniform_(linear_layer.weight)  # Xavier initialization
             layers.append(linear_layer)
+            layers.append(nn.LayerNorm(hidden_dim))
             layers.append(activation())
             current_dim = hidden_dim
 

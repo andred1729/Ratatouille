@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class Maze:
-    def __init__(self, size, text_maze):
+    def __init__(self, size, text_maze, partition_size):
         """
         Initialize a Maze object.
 
@@ -25,7 +25,9 @@ class Maze:
         self.size = size
         self.grid = [[[False, False, False, False] for _ in range(size)] for _ in range(size)]
         self.load_maze(text_maze)
-        self.dist = self.compute_min_dist_to_center()
+        self.partition_size = partition_size
+        self.partition_dist = self.compute_min_dist_to_center(self.partition_size)
+        self.dist = self.compute_min_dist_to_center(1)
         logger.info(np.array(self.grid).shape)
         self.cell = 0
 
@@ -105,8 +107,9 @@ class Maze:
         if abs(pos_x) <= (1 - entrancefactor*rad) and abs(pos_y) <= (1 - entrancefactor*rad):
             return True
 
-    def compute_min_dist_to_center(self):
-        dist = [[-1 for _ in range(self.size)] for _ in range(self.size)]
+    def compute_min_dist_to_center(self, partition_size):
+        fine_size = self.size * partition_size
+        dist = [[-1 for _ in range(fine_size)] for _ in range(fine_size)]
         queue = deque()
 
         # Identify the 4 center cells
@@ -118,8 +121,11 @@ class Maze:
         ]
 
         for r, c in centers:
-            dist[r][c] = 0
-            queue.append((r, c))
+            for i in range(partition_size):
+                for j in range(partition_size):
+                    fr, fc = r * partition_size + i, c * partition_size + j
+                    dist[fr][fc] = 0
+                    queue.append((fr, fc))
 
         directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # up, right, down, left
 
@@ -127,13 +133,26 @@ class Maze:
             r, c = queue.popleft()
             for d, (dr, dc) in enumerate(directions):
                 nr, nc = r + dr, c + dc
-                # Bounds check
-                if 0 <= nr < self.size and 0 <= nc < self.size:
-                    # Wall check: there must be no wall between (r, c) and (nr, nc)
-                    if not self.grid[r][c][d] and dist[nr][nc] == -1:
-                        # Also check the opposite wall on the neighbor
-                        if not self.grid[nr][nc][(d + 2) % 4]:
-                            dist[nr][nc] = dist[r][c] + 1
-                            queue.append((nr, nc))
+                
+                # check for bounds
+                if not (0 <= nr < fine_size and 0 <= nc < fine_size):
+                    continue
+
+                if dist[nr][nc] != -1:
+                    continue
+                
+                # actual maze cell
+                r_cell, c_cell = r // partition_size, c // partition_size
+                nr_cell, nc_cell = nr // partition_size, nc // partition_size
+
+                # movement inside same maze cell
+                if r_cell == nr_cell and c_cell == nc_cell:
+                    dist[nr][nc] = dist[r][c] + 1
+                    queue.append((nr, nc))
+                else:
+                    if (not self.grid[r_cell][c_cell][d]) and (not self.grid[nr_cell][nc_cell][(d + 2) % 4]):
+                        # the second argument in the AND is extra
+                        dist[nr][nc] = dist[r][c] + 1
+                        queue.append((nr, nc))
 
         return np.array(dist)
