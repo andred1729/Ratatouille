@@ -52,6 +52,7 @@ class Maze:
                         return
                     self.grid[row_idx][col_idx][i] = tf[wall]
         self.and_maze()
+        self.add_border_walls()
 
     def and_maze(self):
         """
@@ -67,6 +68,20 @@ class Maze:
             for row_idx in range(1, self.size):
                 self.grid[row_idx-1][col_idx][2] = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
                 self.grid[row_idx][col_idx][0]   = self.grid[row_idx-1][col_idx][2] and self.grid[row_idx][col_idx][0]
+
+    def add_border_walls(self):
+        """
+        Enforce walls on all four borders of the maze.
+        """
+        for i in range(self.size):
+            # Top
+            self.grid[0][i][0] = True
+            # Bottom
+            self.grid[self.size - 1][i][2] = True
+            # Left
+            self.grid[i][0][3] = True
+            # Right
+            self.grid[i][self.size - 1][1] = True
 
     def check_collision(self, pos_x, pos_y_negative, rad):
         #rad = robot radius
@@ -156,3 +171,53 @@ class Maze:
                         queue.append((nr, nc))
 
         return np.array(dist)
+    
+    def lidar(self, pos_x, pos_y, pos_theta):
+        size = self.size
+        x = pos_x + size / 2.0
+        y = -pos_y + size / 2.0
+
+        if x < 0 or x >= size or y < 0 or y >= size:
+            return 0 
+
+        dx = math.cos(pos_theta)
+        dy = -math.sin(pos_theta) 
+
+        if dx == 0:
+            dx = 1e-10
+        if dy == 0:
+            dy = 1e-10
+
+        cell_x = int(x)
+        cell_y = int(y)
+
+        step_x = 1 if dx > 0 else -1
+        step_y = 1 if dy > 0 else -1
+
+        # Distance to next vertical and horizontal grid lines
+        t_max_x = ((cell_x + (step_x > 0)) - x) / dx
+        t_max_y = ((cell_y + (step_y > 0)) - y) / dy
+
+        # Distance between vertical/horizontal grid lines
+        t_delta_x = abs(1 / dx)
+        t_delta_y = abs(1 / dy)
+
+        # Ray distance traveled
+        dist = 0.0
+        while 0 <= cell_x < size and 0 <= cell_y < size:
+            if t_max_x < t_max_y:
+                wall_idx = 1 if step_x > 0 else 3  # right or left
+                if self.grid[cell_y][cell_x][wall_idx]:
+                    dist = t_max_x
+                    break
+                cell_x += step_x
+                t_max_x += t_delta_x
+            else:
+                wall_idx = 2 if step_y > 0 else 0  # down or up
+                if self.grid[cell_y][cell_x][wall_idx]:
+                    dist = t_max_y
+                    break
+                cell_y += step_y
+                t_max_y += t_delta_y
+
+        return dist
