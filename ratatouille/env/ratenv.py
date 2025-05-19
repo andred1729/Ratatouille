@@ -240,7 +240,7 @@ class RatEnv:
         )
         
         # Draw current velocity information
-        velocity_text = self.font.render(f"vL: {self.velocity_left:.2f} vR: {self.velocity_right:.2f} x: {self.x:.2f} y: {self.y:.2f} maze_x: {self.maze_x} maze_y: {self.maze_y} ep: {self.current_episode_length}", True, (0, 0, 0))
+        velocity_text = self.font.render(f"vL: {self.velocity_left:.2f} vR: {self.velocity_right:.2f} x: {self.x:.2f} y: {self.y:.2f} theta: {self.theta:.2f} maze_x: {self.maze_x} maze_y: {self.maze_y} ep: {self.current_episode_length}", True, (0, 0, 0))
         velocity_rect = velocity_text.get_rect(topleft=(220,0))
         self.screen.blit(velocity_text, velocity_rect)
         
@@ -264,6 +264,23 @@ class RatEnv:
                 restart_text = self.font.render("Press 'R' to restart", True, (0, 0, 0))
                 restart_rect = restart_text.get_rect(center=(self.size * self.cell_size // 2, 70))
                 self.screen.blit(restart_text, restart_rect)
+
+        # Lidar
+        lidar_distance = self.maze.lidar(self.x, self.y, self.theta)
+
+        end_x = self.x + lidar_distance * np.cos(self.theta)
+        end_y = self.y + lidar_distance * np.sin(self.theta)
+
+        screen_end_x = int((end_x + self.size / 2) * self.cell_size)
+        screen_end_y = int((self.size / 2 - end_y) * self.cell_size)
+
+        # Draw red laser line
+        pygame.draw.line(
+            self.screen,
+            (255, 0, 0), 
+            (screen_x, screen_y), 
+            (screen_end_x, screen_end_y), 
+    )
         
         pygame.display.flip()
     
