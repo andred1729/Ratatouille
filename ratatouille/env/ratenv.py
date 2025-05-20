@@ -198,7 +198,7 @@ class RatEnv:
             reward += (old_dist - new_dist)/np.max(self.maze.dist)
             reward += expcurve(1.0 - float(new_partition_dist)/np.max(self.maze.partition_dist), 2)
             reward += expcurve(1.0 - float(new_dist)/np.max(self.maze.dist), 2)
-            logging.info(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, old dist: {old_dist}, new dist: {new_dist}, reward: {reward}")
+            logging.debug(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, old dist: {old_dist}, new dist: {new_dist}, reward: {reward}")
             # check truncation
             if (self.current_episode_length == self.max_episode_length):
                 logging.debug("Episode truncated")

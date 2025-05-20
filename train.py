@@ -24,6 +24,7 @@ flags.DEFINE_string('run_name', 'default', 'name of the run')
 flags.DEFINE_boolean('log', True, 'whether to log things to wandb')
 flags.DEFINE_integer('partition_size', 10, 'size that subdivides a cell of the big maze into minicells')
 flags.DEFINE_boolean('use_PER', True, 'to use PER or not')
+flags.DEFINE_boolean('manual_control', False, 'whether takes actions from manual control or not')
 def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,9 +70,11 @@ def main(_):
         
         logging.debug(f"Step {i}/{FLAGS.max_steps}")
         logging.debug(f"Received observation = {observation}")
-        action = env.manual_control()
-        # action = np.tanh(np.random.uniform(-1, 1, env.action_dim))
-        # action = agent.act(observation)
+
+        if FLAGS.manual_control:
+            action = env.manual_control()
+        else:
+            action = agent.act(observation)
         logging.debug(f"Action: {action}")
         next_observation, reward, terminal, truncated, info = env.step(action)
         replay_buffer.insert(observation, action, reward, next_observation, terminal)
@@ -118,7 +121,7 @@ def main(_):
                     wandb.log({f"training/{k}": v}, step=i)
             
             if i % FLAGS.eval_interval == 0:
-                evaluate_info = evaluate(agent, eval_env, FLAGS.eval_episodes)
+                evaluate_info = evaluate(agent, eval_env, FLAGS.eval_episodes, i)
                 if FLAGS.log:
                     for k, v in evaluate_info.items():
                         wandb.log({f"evaluate/{k}": v}, step=i)
