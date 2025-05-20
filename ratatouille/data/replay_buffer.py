@@ -14,7 +14,7 @@ class ReplayBuffer():
     
     Only returns (observation, next_observations, action, discount_mask) 
     """
-    def __init__(self, observation_dim, action_dim, capacity, device, use_PER = False, alpha=0.3, beta=0.4, beta_annealing=1e-5, eps=1e-6):
+    def __init__(self, observation_dim, action_dim, capacity, device, use_PER = False, alpha=0.3, beta=0.4, beta_annealing=1e-7, eps=1e-6):
         self.capacity = capacity
         self.device = device
         
@@ -84,7 +84,7 @@ class ReplayBuffer():
         next_observations = torch.as_tensor(self.next_observations[idxs], device=self.device).float()
         discount_masks = torch.as_tensor(self.discount_masks[idxs], device = self.device).float()
     
-        return observations, actions, rewards, next_observations, discount_masks, weights, idxs
+        return observations, actions, rewards, next_observations, discount_masks, weights, idxs, probs
     
     def update_priorities(self, idxs, td_error_np):
         if not self.use_PER:

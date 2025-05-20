@@ -53,7 +53,7 @@ class RatEnv:
     maze: Maze
     state: np.ndarray
     runnable: bool
-    is_terminal_win: bool
+    is_win: bool
     observation_dim: int
     action_dim: int
     action_range: Tuple[int]
@@ -73,15 +73,15 @@ class RatEnv:
         self.lidar_count = lidar_count
         
         # Episode tracker
-        self.max_episode_length = 5e2
+        self.max_episode_length = 1e3
         
         # Discounting
-        self.discount = 0.995
+        self.discount = 0.999
         
         # Reward design
         self.rewards = {
-            "wall": -5e3,
-            "center": 1e4
+            "wall": -5e2,
+            "center": 1e3
         }
                 
         # Initialization work
@@ -93,7 +93,7 @@ class RatEnv:
         logging.debug(self.to_string())
     
     def _update_state(self):
-        self.state = np.array([self.x, self.y, self.theta, self.velocity_left, self.velocity_right])
+        self.state = np.array([self.x, self.y, self.theta, self.velocity_left, self.velocity_right] + [self.maze.lidar(self.x, self.y, self.theta + float(y)/self.lidar_count * (2 * pi)) for y in range(self.lidar_count)])
         self.theta_deg = self.theta * 180 / pi
         
         # top-left corner is (-self.size/2, self.size/2)
@@ -179,23 +179,21 @@ class RatEnv:
         if self.maze.check_collision(self.x, self.y, self.radius):
             logging.debug("Collision detected! Simulation ended.")
             self.runnable = False
-            self.is_terminal_win = False
-            info["is_terminal_win"] = self.is_terminal_win
+            self.is_win = False
             reward = self.rewards["wall"]
             terminal = True
         elif self.maze.check_win(self.x, self.y, self.radius):
             logging.debug("You win!")
             self.runnable = False
-            self.is_terminal_win = True
-            info["is_terminal_win"] = self.is_terminal_win
+            self.is_win = True
             reward = self.rewards["center"]
             terminal = True
         else:
             new_partition_dist = self.maze.partition_dist[self.partition_maze_y][self.partition_maze_x]
             new_dist = self.maze.dist[self.maze_y][self.maze_x]
             reward = 0
-            reward += (old_partition_dist - new_partition_dist)/np.max(self.maze.partition_dist)
-            reward += (old_dist - new_dist)/np.max(self.maze.dist)
+            # reward += (old_partition_dist - new_partition_dist)/np.max(self.maze.partition_dist)
+            # reward += (old_dist - new_dist)/np.max(self.maze.dist)
             reward += expcurve(1.0 - float(new_partition_dist)/np.max(self.maze.partition_dist), 2)
             reward += expcurve(1.0 - float(new_dist)/np.max(self.maze.dist), 2)
             logging.debug(f"old pdist: {old_partition_dist}, new pdist: {new_partition_dist}, old dist: {old_dist}, new dist: {new_dist}, reward: {reward}")
@@ -207,6 +205,7 @@ class RatEnv:
 
         self.current_episode_discounted_return += self.discount**(self.current_episode_length - 1) * reward
         info.update({
+            "is_win": self.is_win,
             "current_episode_length": self.current_episode_length,
             "current_episode_discounted_return": self.current_episode_discounted_return
         })
@@ -301,7 +300,7 @@ class RatEnv:
         
         # Draw status text if simulation ended
         if not self.runnable:
-            if self.is_terminal_win: 
+            if self.is_win: 
                 game_over_font = pygame.font.SysFont("Arial", 36)
                 game_over_text = game_over_font.render("You Win!", True, (255, 0, 0))
                 text_rect = game_over_text.get_rect(center=(self.size * self.cell_size // 2, 30))
@@ -348,7 +347,7 @@ class RatEnv:
         self.velocity_left = 0
         self.velocity_right = 0
         self.runnable = True
-        self.is_terminal_win = False
+        self.is_win = False
         self.current_episode_length = 0
         self.current_episode_discounted_return = 0
         self._update_state()

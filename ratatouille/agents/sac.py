@@ -9,7 +9,7 @@ from ratatouille.agents.actor import DiagGaussianActor
 
 
 class SACAgent():
-    def __init__(self, env, device, init_temperature=1.0, critic_kwargs={"hidden_dims": (256, 256)}, actor_kwargs={"hidden_dims": (256, 256)}, batch_size=32, critic_cls=DoubleQCritic, actor_cls=DiagGaussianActor, actor_update_frequency=2, target_critic_update_frequency=2, alpha_lr=3e-4, alpha_betas=(0.9, 0.999), actor_lr=3e-4, actor_betas=(0.9, 0.999), critic_lr=3e-4, critic_betas=(0.9, 0.999), critic_tau=0.005):
+    def __init__(self, env, device, init_temperature=1.0, critic_kwargs={"hidden_dims": (512, 512)}, actor_kwargs={"hidden_dims": (512, 512)}, batch_size=32, critic_cls=DoubleQCritic, actor_cls=DiagGaussianActor, actor_update_frequency=1, target_critic_update_frequency=5, alpha_lr=3e-4, alpha_betas=(0.9, 0.999), actor_lr=3e-4, actor_betas=(0.9, 0.999), critic_lr=3e-4, critic_betas=(0.9, 0.999), critic_tau=0.005):
         self.env = env
         self.observation_dim = env.observation_dim
         self.action_dim = env.action_dim
@@ -40,7 +40,7 @@ class SACAgent():
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(self.device)
         self.log_alpha.requires_grad = True
 
-        self.target_entropy = -self.action_dim
+        self.target_entropy = -float(self.action_dim)/2
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
                                                 lr=actor_lr,

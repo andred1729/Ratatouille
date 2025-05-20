@@ -15,16 +15,20 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('size', 4, 'Size of the maze.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
 flags.DEFINE_integer('max_steps', 500000, 'Number of training steps.')
-flags.DEFINE_integer('start_training', 1000, 'Number of training steps.')
-flags.DEFINE_integer('batch_size', 256, 'batch size')
-flags.DEFINE_integer('eval_interval', 100000, 'evaluation frequency')
+flags.DEFINE_integer('start_training', 5000, 'The step to start training at (build buffer before that).')
+flags.DEFINE_integer('batch_size', 1024, 'batch size')
+flags.DEFINE_integer('eval_interval', 5000, 'evaluation frequency')
+flags.DEFINE_integer('log_interval', 100, 'logging frequency frequency')
 flags.DEFINE_integer('eval_episodes', 10, 'num of episodes to evaluate')
 flags.DEFINE_boolean('render_train', False, 'whether to render during training')
-flags.DEFINE_string('run_name', 'default', 'name of the run')
 flags.DEFINE_boolean('log', True, 'whether to log things to wandb')
 flags.DEFINE_integer('partition_size', 10, 'size that subdivides a cell of the big maze into minicells')
 flags.DEFINE_boolean('use_PER', True, 'to use PER or not')
 flags.DEFINE_boolean('manual_control', False, 'whether takes actions from manual control or not')
+flags.DEFINE_integer('lidar_count', 4, 'the number of lidar angles the robot has access to')
+
+flags.DEFINE_float('h_alpha', 0.3, 'PER alpha')
+flags.DEFINE_float('h_beta', 0.4, 'PER beta')
 def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,7 +47,7 @@ def main(_):
         device,
         batch_size=FLAGS.batch_size
     )
-    replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, FLAGS.max_steps, device, FLAGS.use_PER)
+    replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(FLAGS.max_steps/5), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
     
     if FLAGS.log:
         wandb.init(
@@ -93,22 +97,36 @@ def main(_):
 
         
         if i >= FLAGS.start_training:
-            observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, is_weights, idxs = replay_buffer.sample(FLAGS.batch_size)
+            observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, is_weights, idxs, probs = replay_buffer.sample(FLAGS.batch_size)
             train_info, td_error_np = agent.update(observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, i, is_weights)
         
-
             is_weights_np = to_np(is_weights)
+            
+            # kl(p || Unif(N = len(replay_buffer)))
+            N = len(replay_buffer)
+            mask = probs > (1.0/N)/1000
+            kl = np.sum(probs[mask] * (np.log(probs[mask]) + np.log(N)))
             replay_info = {
                 "td_max": np.max(td_error_np),
+                "td_min": np.min(td_error_np),
                 "td_mean": np.mean(td_error_np),
                 "td_75_percentile": np.percentile(td_error_np, 75),
                 "td_50_percentile": np.percentile(td_error_np, 50),
                 "td_25_percentile": np.percentile(td_error_np, 25),
                 "is_weights_max": np.max(is_weights_np),
+                "is_weights_min": np.min(is_weights_np),
                 "is_weights_mean": np.mean(is_weights_np),
                 "is_weights_75_percentile": np.percentile(is_weights_np, 75),
                 "is_weights_50_percentile": np.percentile(is_weights_np, 50),
                 "is_weights_25_percentile": np.percentile(is_weights_np, 25),
+                "N * p_max": np.max(probs) * N,
+                "N * p_min": np.min(probs) * N,
+                "N * p_mean": np.mean(probs) * N,
+                "N * p_75_percentile": np.percentile(probs, 75) * N,
+                "N * p_50_percentile": np.percentile(probs, 50) * N,
+                "N * p_25_percentile": np.percentile(probs, 25) * N,
+                "kl": kl,
+                "batch_reward": np.mean(to_np(reward_batch))
             }
             # logging.info(replay_info)
             if FLAGS.use_PER:
