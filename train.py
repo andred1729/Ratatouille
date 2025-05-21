@@ -1,4 +1,5 @@
 import sys
+import os
 import torch
 import pygame
 import tqdm
@@ -29,6 +30,7 @@ flags.DEFINE_integer('partition_size', 10, 'size that subdivides a cell of the b
 flags.DEFINE_boolean('use_PER', True, 'to use PER or not')
 flags.DEFINE_boolean('manual_control', False, 'whether takes actions from manual control or not')
 flags.DEFINE_integer('lidar_count', 4, 'the number of lidar angles the robot has access to')
+flags.DEFINE_string('save_path', 'models/', 'folder to save models')
 
 flags.DEFINE_float('h_alpha', 0.3, 'PER alpha')
 flags.DEFINE_float('h_beta', 0.4, 'PER beta')
@@ -67,6 +69,9 @@ def main(_):
         )
         wandb.config.update(FLAGS)
     
+    os.makedirs(FLAGS.save_path, exist_ok=True)
+    best_return = -float('inf')
+
     for i in tqdm.tqdm(range(FLAGS.max_steps), smoothing=0.1):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -156,9 +161,17 @@ def main(_):
             
             if i % FLAGS.eval_interval == 0:
                 evaluate_info = evaluate(agent, eval_env, FLAGS.eval_episodes, i)
+                average_return = evaluate_info["average_episode_return"]
                 if FLAGS.log:
                     for k, v in evaluate_info.items():
                         wandb.log({f"evaluate/{k}": v}, step=i)
+            
+                if average_return > best_return:
+                    best_return = average_return
+                    torch.save(agent.actor.state_dict(), os.path.join(FLAGS.save_path, "best_actor.pt"))
+                    torch.save(agent.critic.state_dict(), os.path.join(FLAGS.save_path, "best_critic.pt"))
+                    logging.info(f"Saved new best model at step {i} with return {average_return:.2f}")
+
 
 if __name__ == "__main__":
     app.run(main)
