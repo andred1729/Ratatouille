@@ -119,12 +119,13 @@ class SACAgent():
         td_error_2 = (current_Q2 - target_Q)
         
         if is_weights is not None:
-            critic_loss = (is_weights * td_error_1.pow(2)).mean() + \
-                (is_weights * td_error_2.pow(2)).mean()
+            loss_1 = (is_weights * td_error_1.pow(2)).mean()
+            loss_2 = (is_weights * td_error_2.pow(2)).mean()
         else:
-            critic_loss = F.mse_loss(
-                current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
-
+            loss_1 =  F.mse_loss(current_Q1, target_Q)
+            loss_2 = F.mse_loss(current_Q2, target_Q)
+        
+        critic_loss = loss_1 + loss_2
         # output td error for PER
         with torch.no_grad():
             td_error = (0.5 * td_error_1.abs() +
@@ -139,6 +140,9 @@ class SACAgent():
 
         return {
             "critic_loss": critic_loss,
+            "loss_1": loss_1,
+            "loss_2": loss_2,
+            "target_Q_mean": target_Q.mean()
         }, td_error_np
 
     def update_actor_and_alpha(self, observation):

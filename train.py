@@ -16,9 +16,9 @@ flags.DEFINE_integer('size', 4, 'Size of the maze.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
 flags.DEFINE_integer('max_steps', 500000, 'Number of training steps.')
 flags.DEFINE_integer('start_training', 5000, 'The step to start training at (build buffer before that).')
-flags.DEFINE_integer('batch_size', 1024, 'batch size')
+flags.DEFINE_integer('batch_size', 256, 'batch size')
 flags.DEFINE_integer('eval_interval', 5000, 'evaluation frequency')
-flags.DEFINE_integer('log_interval', 100, 'logging frequency frequency')
+flags.DEFINE_integer('log_interval', 500, 'logging frequency frequency')
 flags.DEFINE_integer('eval_episodes', 10, 'num of episodes to evaluate')
 flags.DEFINE_boolean('render_train', False, 'whether to render during training')
 flags.DEFINE_boolean('log', True, 'whether to log things to wandb')
@@ -39,13 +39,19 @@ def main(_):
         logging.error(f"Maze size {size} is not available in MAZES.")
         return
     
-    env = RatEnv(size, MAZES[size], FLAGS.partition_size)
-    eval_env = RatEnv(size, MAZES[size])
+    env = RatEnv(size, MAZES[size], partition_size=FLAGS.partition_size)
+    eval_env = RatEnv(size, MAZES[size], max_episode_length=300)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,
         device,
-        batch_size=FLAGS.batch_size
+        batch_size=FLAGS.batch_size,
+        critic_kwargs={
+            "hidden_dims": (256, 256, 256)
+        },
+        actor_kwargs={
+            "hidden_dims": (256, 256, 256)
+        }
     )
     replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(FLAGS.max_steps/5), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
     
@@ -94,8 +100,14 @@ def main(_):
         
         if done:
             observation, done = env.reset(), False
-
-        
+            if i >= int(3 * FLAGS.max_steps/4):
+                 env.max_episode_length = 300
+            elif i >= int(2 * FLAGS.max_steps/4):
+                env.max_episode_length = 250
+            elif  i >= int(FLAGS.max_steps/4):
+                env.max_episode_length = 200
+               
+            
         if i >= FLAGS.start_training:
             observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, is_weights, idxs, probs = replay_buffer.sample(FLAGS.batch_size)
             train_info, td_error_np = agent.update(observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, i, is_weights)
@@ -126,17 +138,16 @@ def main(_):
                 "N * p_50_percentile": np.percentile(probs, 50) * N,
                 "N * p_25_percentile": np.percentile(probs, 25) * N,
                 "kl": kl,
-                "batch_reward": np.mean(to_np(reward_batch))
             }
             # logging.info(replay_info)
             if FLAGS.use_PER:
                 replay_buffer.update_priorities(idxs, td_error_np)
-            if FLAGS.log:
+            if (FLAGS.log and i % FLAGS.log_interval == 0):
                 for k, v in train_info.items():
                     wandb.log({f"training/{k}": v}, step=i)
                 
                 for k, v in replay_info.items():
-                    wandb.log({f"training/{k}": v}, step=i)
+                    wandb.log({f"debug/{k}": v}, step=i)
             
             if i % FLAGS.eval_interval == 0:
                 evaluate_info = evaluate(agent, eval_env, FLAGS.eval_episodes, i)

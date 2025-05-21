@@ -58,7 +58,7 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, partition_size = 10, lidar_count = 4):
+    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -73,15 +73,15 @@ class RatEnv:
         self.lidar_count = lidar_count
         
         # Episode tracker
-        self.max_episode_length = 1e3
+        self.max_episode_length = max_episode_length
         
         # Discounting
-        self.discount = 0.999
+        self.discount = 0.99
         
         # Reward design
         self.rewards = {
-            "wall": -5e2,
-            "center": 1e3
+            "wall": -100,
+            "center": 100
         }
                 
         # Initialization work
