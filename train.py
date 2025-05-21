@@ -12,6 +12,9 @@ from ratatouille.agents import SACAgent
 from ratatouille.evaluation import evaluate
 from ratatouille.utils import to_np
 FLAGS = flags.FLAGS
+
+flags.DEFINE_string('run_name', 'default_run_name', 'name of the run')
+flags.DEFINE_string('group_name', 'default_group_name', 'name of the group')
 flags.DEFINE_integer('size', 4, 'Size of the maze.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
 flags.DEFINE_integer('max_steps', 500000, 'Number of training steps.')
@@ -59,6 +62,8 @@ def main(_):
         wandb.init(
             entity="ratatouille",
             project="sac",
+            group=FLAGS.group_name,
+            name=FLAGS.run_name,
         )
         wandb.config.update(FLAGS)
     
