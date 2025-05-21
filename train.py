@@ -31,6 +31,11 @@ flags.DEFINE_boolean('use_PER', True, 'to use PER or not')
 flags.DEFINE_boolean('manual_control', False, 'whether takes actions from manual control or not')
 flags.DEFINE_integer('lidar_count', 4, 'the number of lidar angles the robot has access to')
 flags.DEFINE_string('save_path', 'models/', 'folder to save models')
+flags.DEFINE_string('save_actor_name', 'best_actor.pt', 'path to pretrained actor model' )
+flags.DEFINE_string('save_critic_name', 'best_critic.pt', 'path to pretrained critic model' )
+flags.DEFINE_boolean('load_model', False, 'to train on a pretrained model or not')
+flags.DEFINE_string('actor_path', 'models/best_actor.pt', 'path to pretrained actor model' )
+flags.DEFINE_string('critic_path', 'models/best_critic.pt', 'path to pretrained critic model' )
 
 flags.DEFINE_float('h_alpha', 0.3, 'PER alpha')
 flags.DEFINE_float('h_beta', 0.4, 'PER beta')
@@ -58,6 +63,15 @@ def main(_):
             "hidden_dims": (256, 256, 256)
         }
     )
+
+    if FLAGS.load_model:
+        if not os.path.exists(FLAGS.actor_path):
+            raise FileNotFoundError(f"No model found at {FLAGS.actor_path}")
+        if not os.path.exists(FLAGS.critic_path):
+            raise FileNotFoundError(f"No model found at {FLAGS.critic_path}")
+        agent.actor.load_state_dict(torch.load(FLAGS.actor_path, map_location=device))
+        agent.critic.load_state_dict(torch.load(FLAGS.critic_path, map_location=device))
+
     replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(FLAGS.max_steps/5), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
     
     if FLAGS.log:
@@ -168,8 +182,8 @@ def main(_):
             
                 if average_return > best_return:
                     best_return = average_return
-                    torch.save(agent.actor.state_dict(), os.path.join(FLAGS.save_path, "best_actor.pt"))
-                    torch.save(agent.critic.state_dict(), os.path.join(FLAGS.save_path, "best_critic.pt"))
+                    torch.save(agent.actor.state_dict(), os.path.join(FLAGS.save_path, FLAGS.save_actor_name))
+                    torch.save(agent.critic.state_dict(), os.path.join(FLAGS.save_path, FLAGS.save_critic_name))
                     logging.info(f"Saved new best model at step {i} with return {average_return:.2f}")
 
 
