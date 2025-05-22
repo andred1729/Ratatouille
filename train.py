@@ -16,7 +16,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('run_name', 'default_run_name', 'name of the run')
 flags.DEFINE_string('group_name', 'default_group_name', 'name of the group')
-flags.DEFINE_integer('size', 4, 'Size of the maze.')
+flags.DEFINE_string('layout', '4-1', 'Chosen maze layout.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
 flags.DEFINE_integer('max_steps', 500000, 'Number of training steps.')
 flags.DEFINE_integer('start_training', 5000,
@@ -55,14 +55,15 @@ def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
-    size = FLAGS.size
+    layout = FLAGS.layout
+    size = int(layout.split('-')[0])
     set_seed(FLAGS.seed)
-    if size not in MAZES:
-        logging.error(f"Maze size {size} is not available in MAZES.")
+    if layout not in MAZES:
+        logging.error(f"Maze layout {layout} is not available in MAZES.")
         return
 
-    env = RatEnv(size, MAZES[size], partition_size=FLAGS.partition_size)
-    eval_env = RatEnv(size, MAZES[size], max_episode_length=300)
+    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=300)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,

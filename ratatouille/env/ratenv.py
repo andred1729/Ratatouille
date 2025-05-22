@@ -2,7 +2,7 @@ from absl import logging
 import sys
 import numpy as np
 import pygame
-from math import pi, floor, fabs
+from math import pi, floor, fabs, ceil
 from typing import Tuple, Dict
 import matplotlib.cm as cm
 from ratatouille.env.maze import Maze
@@ -58,7 +58,7 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4):
+    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4, rewards=None):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -79,10 +79,13 @@ class RatEnv:
         self.discount = 0.99
         
         # Reward design
-        self.rewards = {
-            "wall": -100,
-            "center": 100
-        }
+        if rewards is None:
+            self.rewards = {
+                "wall": -100,
+                "center": 100
+            }
+        else:
+            self.rewards = rewards
                 
         # Initialization work
         self.reset()
@@ -222,7 +225,7 @@ class RatEnv:
                 p = float(partition_dist[r][c])/partition_dist_max
                 color = tuple(int(255 * x) for x in self.colormap(1-p)[:3]) if p >= 0 else (250, 250, 250)
                 cell_width = float(self.cell_size/self.partition_size)
-                rect= pygame.Rect(c * cell_width, r * cell_width, cell_width, cell_width)
+                rect= pygame.Rect(int(c * cell_width), int(r * cell_width), ceil(cell_width), ceil(cell_width))
                 pygame.draw.rect(self.screen, color, rect)
         
         for row_i, row in enumerate(self.maze.grid):
