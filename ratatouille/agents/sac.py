@@ -9,7 +9,7 @@ from ratatouille.agents.actor import DiagGaussianActor
 
 
 class SACAgent():
-    def __init__(self, env, device, init_temperature=1.0, critic_kwargs={"hidden_dims": (512, 512)}, actor_kwargs={"hidden_dims": (512, 512)}, batch_size=32, critic_cls=DoubleQCritic, actor_cls=DiagGaussianActor, actor_update_frequency=1, target_critic_update_frequency=5, alpha_lr=3e-4, alpha_betas=(0.9, 0.999), actor_lr=3e-4, actor_betas=(0.9, 0.999), critic_lr=3e-4, critic_betas=(0.9, 0.999), critic_tau=0.005):
+    def __init__(self, env, device, init_temperature=1.0, critic_kwargs={"hidden_dims": (256, 256, 256)}, actor_kwargs={"hidden_dims": (256, 256, 256)}, batch_size=256, critic_cls=DoubleQCritic, actor_cls=DiagGaussianActor, actor_update_frequency=1, target_critic_update_frequency=5, alpha_lr=3e-4, alpha_betas=(0.9, 0.999), actor_lr=3e-4, actor_betas=(0.9, 0.999), critic_lr=3e-4, critic_betas=(0.9, 0.999), critic_tau=0.005):
         self.env = env
         self.observation_dim = env.observation_dim
         self.action_dim = env.action_dim
@@ -58,6 +58,7 @@ class SACAgent():
         logging.info(f"Actor structure: {self.actor}")
         logging.info(f"Critic structure: {self.critic}")
         logging.info(f"Target Critic structure: {self.target_critic}")
+
     @property
     def alpha(self):
         return self.log_alpha.exp()
@@ -97,7 +98,6 @@ class SACAgent():
         # sum -1 because multiple action dimension, so total entropy is
         # sum of log on each dimension
         log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
-        
 
         # pessimistic Q update
         target_Q1, target_Q2 = self.target_critic(
@@ -114,17 +114,17 @@ class SACAgent():
         current_Q1, current_Q2 = self.critic(observation, action)
 
         # define loss and gradient descent
-        
+
         td_error_1 = (current_Q1 - target_Q)
         td_error_2 = (current_Q2 - target_Q)
-        
+
         if is_weights is not None:
             loss_1 = (is_weights * td_error_1.pow(2)).mean()
             loss_2 = (is_weights * td_error_2.pow(2)).mean()
         else:
-            loss_1 =  F.mse_loss(current_Q1, target_Q)
+            loss_1 = F.mse_loss(current_Q1, target_Q)
             loss_2 = F.mse_loss(current_Q2, target_Q)
-        
+
         critic_loss = loss_1 + loss_2
         # output td error for PER
         with torch.no_grad():
