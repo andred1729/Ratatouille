@@ -25,8 +25,10 @@ flags.DEFINE_integer('batch_size', 256, 'batch size')
 flags.DEFINE_integer('eval_interval', 5000, 'evaluation frequency')
 flags.DEFINE_integer('log_interval', 500, 'logging frequency frequency')
 flags.DEFINE_integer('eval_episodes', 10, 'num of episodes to evaluate')
-flags.DEFINE_boolean('render_train', False,
+flags.DEFINE_boolean('train_render', False,
                      'whether to render during training')
+flags.DEFINE_boolean('eval_render', False,
+                     'whether to render during evaluation')
 flags.DEFINE_boolean('log', True, 'whether to log things to wandb')
 flags.DEFINE_integer('partition_size', 10,
                      'size that subdivides a cell of the big maze into minicells')
@@ -62,8 +64,8 @@ def main(_):
         logging.error(f"Maze layout {layout} is not available in MAZES.")
         return
 
-    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size)
-    eval_env = RatEnv(size, MAZES[layout], max_episode_length=300)
+    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=300, use_pygame=FLAGS.eval_render)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,
@@ -99,18 +101,19 @@ def main(_):
     best_return = -float('inf')
 
     for i in tqdm.tqdm(range(FLAGS.max_steps), smoothing=0.1):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-
-            # Handle keyboard events
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
-                    env.reset()
-                if event.key == pygame.K_ESCAPE:
+        if FLAGS.manual_control:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+
+                # Handle keyboard events
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        env.reset()
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
 
         assert (env.runnable)
 
@@ -128,12 +131,11 @@ def main(_):
         observation = next_observation
 
         done = terminal or truncated
-        if FLAGS.render_train:
-            env.render(f"Step: {i}")
-            if done:
-                env.clock.tick(1)
-            else:
-                env.clock.tick(60)
+        env.render(f"Step: {i}")
+        if done:
+            env.clock_tick(10)
+        else:
+            env.clock_tick(120)
 
         if done:
             observation, done = env.reset(), False

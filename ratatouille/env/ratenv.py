@@ -58,7 +58,7 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4, rewards=None):
+    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4, rewards=None, use_pygame=False):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -90,8 +90,9 @@ class RatEnv:
         # Initialization work
         self.reset()
         self.observation_dim = len(self.state)
-        self._vis_init()
-        
+        self.use_pygame = use_pygame
+        if self.use_pygame:
+            self.init_pygame()
         logging.debug("Initialized RatEnv")
         logging.debug(self.to_string())
     
@@ -106,7 +107,7 @@ class RatEnv:
         self.partition_maze_x = floor((self.x - (-self.size/2)) * self.partition_size)
         self.partition_maze_y = floor((self.size/2 - self.y) * self.partition_size)
     
-    def _vis_init(self):
+    def init_pygame(self):
         # Visualization
         pygame.init()
         self.font = pygame.font.SysFont("Arial", 16)
@@ -217,6 +218,8 @@ class RatEnv:
         return step_output
 
     def render(self, added_info):
+        if not self.use_pygame:
+            return
         self.screen.fill(FREE_COLOR)
         partition_dist = self.maze.partition_dist
         partition_dist_max = np.max(partition_dist)
@@ -384,3 +387,14 @@ class RatEnv:
             action_right -= self.acceleration * 0.5
             
         return np.array([action_left, action_right])
+    
+    def quit_pygame(self):
+        if not self.use_pygame:
+            return
+        pygame.quit()
+        pygame.display.quit()
+        
+    def clock_tick(self, fps):
+        if not self.use_pygame:
+            return
+        self.clock.tick(fps)

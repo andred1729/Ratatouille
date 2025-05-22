@@ -48,7 +48,7 @@ def load_and_run(_):
         total_reward += reward
 
         env.render(f"Step {step}, Total reward: {total_reward:.2f}")
-        env.clock.tick(15)
+        env.clock_tick(15)
 
         if terminal or truncated:
             break
