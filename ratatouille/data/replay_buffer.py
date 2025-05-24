@@ -76,7 +76,8 @@ class ReplayBuffer():
         else:
             idxs = np.random.randint(0, self.size, size=batch_size)
             weights = torch.ones((batch_size, 1), device=self.device)
-            
+            probs = np.ones((self.size,))/self.size
+
 
         observations = torch.as_tensor(self.observations[idxs], device = self.device).float()
         actions = torch.as_tensor(self.actions[idxs], device = self.device).float()
