@@ -58,7 +58,7 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, max_episode_length = 200, partition_size = 10, lidar_count = 4, rewards=None, use_pygame=False):
+    def __init__(self, size, text_maze, max_episode_length = 300, partition_size = 10, lidar_count = 4, rewards={"wall": -100, "center": 100}, use_pygame=False):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -79,14 +79,8 @@ class RatEnv:
         self.discount = 0.99
         
         # Reward design
-        if rewards is None:
-            self.rewards = {
-                "wall": -100,
-                "center": 100
-            }
-        else:
-            self.rewards = rewards
-                
+        self.rewards = rewards
+        
         # Initialization work
         self.reset()
         self.observation_dim = len(self.state)

@@ -55,9 +55,9 @@ class SACAgent():
         self.train()
         self.target_critic.train()
 
-        logging.info(f"Actor structure: {self.actor}")
-        logging.info(f"Critic structure: {self.critic}")
-        logging.info(f"Target Critic structure: {self.target_critic}")
+        logging.debug(f"Actor structure: {self.actor}")
+        logging.debug(f"Critic structure: {self.critic}")
+        logging.debug(f"Target Critic structure: {self.target_critic}")
 
     @property
     def alpha(self):

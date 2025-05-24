@@ -54,7 +54,8 @@ flags.DEFINE_float('h_beta', 0.4, 'PER beta')
 
 flags.DEFINE_integer('wall_reward', -100, 'Reward when hitting wall (negative)')
 flags.DEFINE_integer('center_reward', 100, 'reward when reaching center of maze (positive)')
-
+flags.DEFINE_integer('max_episodes_per_layout', 100, 'number of episodes per 1 unit of layout')
+flags.DEFINE_bool('incremental_training', True, 'whether to gradually step up maximum number of episodes allowed')
 
 def main(_):
     logging.set_verbosity(logging.INFO)
@@ -67,8 +68,9 @@ def main(_):
         logging.error(f"Maze layout {layout} is not available in MAZES.")
         return
 
-    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render)
-    eval_env = RatEnv(size, MAZES[layout], max_episode_length=300, use_pygame=FLAGS.eval_render)
+    rewards_dict = {"wall": FLAGS.wall_reward, "center": FLAGS.center_reward}
+    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), use_pygame=FLAGS.eval_render, rewards=rewards_dict)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,
@@ -142,12 +144,15 @@ def main(_):
 
         if done:
             observation, done = env.reset(), False
-            if i >= int(3 * FLAGS.max_steps/4):
-                env.max_episode_length = 300
-            elif i >= int(2 * FLAGS.max_steps/4):
-                env.max_episode_length = 250
-            elif i >= int(FLAGS.max_steps/4):
-                env.max_episode_length = 200
+            if FLAGS.incremental_training:
+                if i >= int(3 * FLAGS.max_steps/4):
+                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size)
+                elif i >= int(2 * FLAGS.max_steps/4):
+                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.9)
+                elif i >= int(FLAGS.max_steps/4):
+                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.7)
+                else:
+                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.5)
 
         if i >= FLAGS.start_training:
             observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, is_weights, idxs, probs = replay_buffer.sample(
