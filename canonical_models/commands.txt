@@ -1,0 +1,2 @@
+python train.py --run_name 8 --group_name dchen_test --save_actor_name 8actor.pt --save_critic_name 8critic.pt --actor_path models/4actor.pt --critic_path models/4critic.pt --max_steps 500000 --size 8
+python train.py --run_name 8to16 --group_name dchen_test --save_actor_name 8to16actor.pt --save_critic_name 8to16critic.pt --load_model True --actor_path models/8actor.pt --critic_path models/8critic.pt --max_steps 500000 --layout 16-1
