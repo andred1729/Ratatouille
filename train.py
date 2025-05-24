@@ -52,6 +52,9 @@ flags.DEFINE_string('critic_path', 'models/best_critic.pt',
 flags.DEFINE_float('h_alpha', 0.3, 'PER alpha')
 flags.DEFINE_float('h_beta', 0.4, 'PER beta')
 
+flags.DEFINE_integer('wall_reward', -100, 'Reward when hitting wall (negative)')
+flags.DEFINE_integer('center_reward', 100, 'reward when reaching center of maze (positive)')
+
 
 def main(_):
     logging.set_verbosity(logging.INFO)
