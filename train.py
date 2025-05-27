@@ -14,6 +14,7 @@ from ratatouille.evaluation import evaluate
 from ratatouille.utils import to_np
 FLAGS = flags.FLAGS
 
+flags.DEFINE_string('project_name', 'sac', 'project name')
 flags.DEFINE_string('run_name', 'default_run_name', 'name of the run')
 flags.DEFINE_string('group_name', 'default_group_name', 'name of the group')
 flags.DEFINE_string('layout', '4-1', 'Chosen maze layout.')
@@ -44,6 +45,7 @@ flags.DEFINE_string('save_critic_name', 'best_critic.pt',
                     'path to pretrained critic model')
 flags.DEFINE_boolean('load_model', False,
                      'to train on a pretrained model or not')
+flags.DEFINE_bool('save_model', False, 'to save model or not')
 flags.DEFINE_string('actor_path', 'models/best_actor.pt',
                     'path to pretrained actor model')
 flags.DEFINE_string('critic_path', 'models/best_critic.pt',
@@ -56,7 +58,6 @@ flags.DEFINE_integer('wall_reward', -100, 'Reward when hitting wall (negative)')
 flags.DEFINE_integer('center_reward', 100, 'reward when reaching center of maze (positive)')
 flags.DEFINE_integer('max_episodes_per_layout', 100, 'number of episodes per 1 unit of layout')
 flags.DEFINE_bool('incremental_training', True, 'whether to gradually step up maximum number of episodes allowed')
-
 def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,7 +97,7 @@ def main(_):
     if FLAGS.log:
         wandb.init(
             entity="ratatouille",
-            project="sac",
+            project=FLAGS.project_name,
             group=FLAGS.group_name,
             name=FLAGS.run_name,
         )
@@ -205,14 +206,15 @@ def main(_):
                     for k, v in evaluate_info.items():
                         wandb.log({f"evaluate/{k}": v}, step=i)
 
-                if average_return > best_return:
-                    best_return = average_return
-                    torch.save(agent.actor.state_dict(), os.path.join(
-                        FLAGS.save_path, FLAGS.save_actor_name))
-                    torch.save(agent.critic.state_dict(), os.path.join(
-                        FLAGS.save_path, FLAGS.save_critic_name))
-                    logging.info(
-                        f"Saved new best model at step {i} with return {average_return:.2f}")
+                if FLAGS.save_model:
+                    if average_return > best_return:
+                        best_return = average_return
+                        torch.save(agent.actor.state_dict(), os.path.join(
+                            FLAGS.save_path, FLAGS.save_actor_name))
+                        torch.save(agent.critic.state_dict(), os.path.join(
+                            FLAGS.save_path, FLAGS.save_critic_name))
+                        logging.info(
+                            f"Saved new best model at step {i} with return {average_return:.2f}")
 
 
 if __name__ == "__main__":
