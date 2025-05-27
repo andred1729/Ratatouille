@@ -69,7 +69,7 @@ class ReplayBuffer():
             
             idxs = np.random.choice(self.size, batch_size, p=probs)
             weights = (self.size * probs[idxs]) ** (-self.beta)
-            weights /= weights.max()
+            weights /= weights.sum()
             
             self.beta = min(1.0, self.beta + self.beta_annealing)
             weights = torch.as_tensor(weights, device=self.device).unsqueeze(1).float()

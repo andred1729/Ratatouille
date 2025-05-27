@@ -39,23 +39,14 @@ flags.DEFINE_boolean('manual_control', False,
 flags.DEFINE_integer(
     'lidar_count', 4, 'the number of lidar angles the robot has access to')
 flags.DEFINE_string('save_path', 'models/', 'folder to save models')
-flags.DEFINE_string('save_actor_name', 'best_actor.pt',
-                    'path to pretrained actor model')
-flags.DEFINE_string('save_critic_name', 'best_critic.pt',
-                    'path to pretrained critic model')
-flags.DEFINE_boolean('load_model', False,
-                     'to train on a pretrained model or not')
+flags.DEFINE_string('load_model_path', "", 'path to pre-trained model')
 flags.DEFINE_bool('save_model', False, 'to save model or not')
-flags.DEFINE_string('actor_path', 'models/best_actor.pt',
-                    'path to pretrained actor model')
-flags.DEFINE_string('critic_path', 'models/best_critic.pt',
-                    'path to pretrained critic model')
 
 flags.DEFINE_float('h_alpha', 0.3, 'PER alpha')
 flags.DEFINE_float('h_beta', 0.4, 'PER beta')
 
-flags.DEFINE_integer('wall_reward', -100, 'Reward when hitting wall (negative)')
-flags.DEFINE_integer('center_reward', 100, 'reward when reaching center of maze (positive)')
+flags.DEFINE_integer('wall_reward_per_layout', -25, 'Reward when hitting wall (negative)')
+flags.DEFINE_integer('center_reward_per_layout', 25, 'reward when reaching center of maze (positive)')
 flags.DEFINE_integer('max_episodes_per_layout', 100, 'number of episodes per 1 unit of layout')
 flags.DEFINE_bool('incremental_training', True, 'whether to gradually step up maximum number of episodes allowed')
 def main(_):
@@ -69,9 +60,9 @@ def main(_):
         logging.error(f"Maze layout {layout} is not available in MAZES.")
         return
 
-    rewards_dict = {"wall": FLAGS.wall_reward, "center": FLAGS.center_reward}
-    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict)
-    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), use_pygame=FLAGS.eval_render, rewards=rewards_dict)
+    rewards_dict = {"wall": FLAGS.wall_reward_per_layout * size, "center": FLAGS.center_reward_per_layout * size}
+    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), use_pygame=FLAGS.eval_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,
@@ -81,18 +72,26 @@ def main(_):
         actor_kwargs={"hidden_dims": (256, 256, 256)}
     )
 
-    if FLAGS.load_model:
-        if not os.path.exists(FLAGS.actor_path):
-            raise FileNotFoundError(f"No model found at {FLAGS.actor_path}")
-        if not os.path.exists(FLAGS.critic_path):
-            raise FileNotFoundError(f"No model found at {FLAGS.critic_path}")
-        agent.actor.load_state_dict(torch.load(
-            FLAGS.actor_path, map_location=device))
-        agent.critic.load_state_dict(torch.load(
-            FLAGS.critic_path, map_location=device))
+    if (FLAGS.load_model_path != ""):
+        if not os.path.exists(FLAGS.load_model_path + "/actor.pt"):
+            raise FileNotFoundError("No actor model found!")
+        if not os.path.exists(FLAGS.load_model_path + "/critic.pt"):
+            raise FileNotFoundError("No critic model found!")
+        if not os.path.exists(FLAGS.load_model_path + "/target_critic.pt"):
+            raise FileNotFoundError("No target critic model found!")
+        if not os.path.exists(FLAGS.load_model_path + "/log_alpha.pt"):
+            raise FileNotFoundError("No log alpha model found!")
 
-    replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(
-        FLAGS.max_steps/5), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
+        agent.actor.load_state_dict(torch.load(
+            FLAGS.load_model_path + "/actor.pt", map_location=device))
+        agent.critic.load_state_dict(torch.load(
+            FLAGS.load_model_path + "/critic.pt", map_location=device))
+        agent.target_critic.load_state_dict(torch.load(
+            FLAGS.load_model_path + "/target_critic.pt", map_location=device))
+        agent.log_alpha.load_state_dict(torch.load(
+            FLAGS.load_model_path + "/log_alpha.pt", map_location=device))
+
+    replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(FLAGS.max_steps), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
 
     if FLAGS.log:
         wandb.init(
@@ -207,15 +206,22 @@ def main(_):
                         wandb.log({f"evaluate/{k}": v}, step=i)
 
                 if FLAGS.save_model:
+                    actor_path = f"models/{FLAGS.run_name}/actor.pt"
+                    critic_path = f"models/{FLAGS.run_name}/critic.pt"
+                    target_critic_path = f"models/{FLAGS.run_name}/target_critic.pt"
+                    log_alpha_path = f"models/{FLAGS.run_name}/log_alpha.pt"
                     if average_return > best_return:
                         best_return = average_return
                         torch.save(agent.actor.state_dict(), os.path.join(
-                            FLAGS.save_path, FLAGS.save_actor_name))
+                            FLAGS.save_path, actor_path))
                         torch.save(agent.critic.state_dict(), os.path.join(
-                            FLAGS.save_path, FLAGS.save_critic_name))
+                            FLAGS.save_path, critic_path))
+                        torch.save(agent.target_critic.state_dict(), os.path.join(
+                            FLAGS.save_path, target_critic_path))
+                        torch.save(agent.log_alpha.state_dict(), os.path.join(
+                            FLAGS.save_path, log_alpha_path))
                         logging.info(
                             f"Saved new best model at step {i} with return {average_return:.2f}")
-
 
 if __name__ == "__main__":
     app.run(main)

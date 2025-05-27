@@ -87,9 +87,8 @@ class RatEnv:
         self.use_pygame = use_pygame
         if self.use_pygame:
             self.init_pygame()
-        logging.debug("Initialized RatEnv")
-        logging.debug(self.to_string())
-    
+        logging.info(f"Initialized RatEnv: size={self.size}, partition_size={self.partition_size}, max_episode_length={self.max_episode_length}, lidar_count={self.lidar_count}, rewards={self.rewards}, use_pygame={self.use_pygame}")
+        
     def _update_state(self):
         self.state = np.array([self.x, self.y, self.theta, self.velocity_left, self.velocity_right] + [self.maze.lidar(self.x, self.y, self.theta + float(y)/self.lidar_count * (2 * pi)) for y in range(self.lidar_count)])
         self.theta_deg = self.theta * 180 / pi
