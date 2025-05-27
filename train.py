@@ -49,6 +49,7 @@ flags.DEFINE_integer('wall_reward_per_layout', -25, 'Reward when hitting wall (n
 flags.DEFINE_integer('center_reward_per_layout', 25, 'reward when reaching center of maze (positive)')
 flags.DEFINE_integer('max_episodes_per_layout', 100, 'number of episodes per 1 unit of layout')
 flags.DEFINE_bool('incremental_training', True, 'whether to gradually step up maximum number of episodes allowed')
+flags.DEFINE_integer('version', 2, 'versioning')
 def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -88,8 +89,8 @@ def main(_):
             FLAGS.load_model_path + "/critic.pt", map_location=device))
         agent.target_critic.load_state_dict(torch.load(
             FLAGS.load_model_path + "/target_critic.pt", map_location=device))
-        agent.log_alpha.load_state_dict(torch.load(
-            FLAGS.load_model_path + "/log_alpha.pt", map_location=device))
+        agent.log_alpha = torch.load(FLAGS.load_model_path + "/log_alpha.pt", map_location=device)
+        agent.log_alpha.requires_grad = True
 
     replay_buffer = ReplayBuffer(env.observation_dim, env.action_dim, int(FLAGS.max_steps), device, FLAGS.use_PER, FLAGS.h_alpha, FLAGS.h_beta, (1.0 - FLAGS.h_beta)/FLAGS.max_steps)
 
@@ -102,7 +103,8 @@ def main(_):
         )
         wandb.config.update(FLAGS)
 
-    os.makedirs(FLAGS.save_path, exist_ok=True)
+    save_path = f"models/{FLAGS.run_name}"
+    os.makedirs(save_path, exist_ok=True)
     best_return = -float('inf')
 
     for i in tqdm.tqdm(range(FLAGS.max_steps), smoothing=0.1):
@@ -206,20 +208,16 @@ def main(_):
                         wandb.log({f"evaluate/{k}": v}, step=i)
 
                 if FLAGS.save_model:
-                    actor_path = f"models/{FLAGS.run_name}/actor.pt"
-                    critic_path = f"models/{FLAGS.run_name}/critic.pt"
-                    target_critic_path = f"models/{FLAGS.run_name}/target_critic.pt"
-                    log_alpha_path = f"models/{FLAGS.run_name}/log_alpha.pt"
+                    actor_path = f"{save_path}/actor.pt"
+                    critic_path = f"{save_path}/critic.pt"
+                    target_critic_path = f"{save_path}/target_critic.pt"
+                    log_alpha_path = f"{save_path}/log_alpha.pt"
                     if average_return > best_return:
                         best_return = average_return
-                        torch.save(agent.actor.state_dict(), os.path.join(
-                            FLAGS.save_path, actor_path))
-                        torch.save(agent.critic.state_dict(), os.path.join(
-                            FLAGS.save_path, critic_path))
-                        torch.save(agent.target_critic.state_dict(), os.path.join(
-                            FLAGS.save_path, target_critic_path))
-                        torch.save(agent.log_alpha.state_dict(), os.path.join(
-                            FLAGS.save_path, log_alpha_path))
+                        torch.save(agent.actor.state_dict(), actor_path)
+                        torch.save(agent.critic.state_dict(), critic_path)
+                        torch.save(agent.target_critic.state_dict(), target_critic_path)
+                        torch.save(agent.log_alpha, log_alpha_path)
                         logging.info(
                             f"Saved new best model at step {i} with return {average_return:.2f}")
 
