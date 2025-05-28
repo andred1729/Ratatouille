@@ -62,8 +62,8 @@ def main(_):
         return
 
     rewards_dict = {"wall": FLAGS.wall_reward_per_layout * size, "center": FLAGS.center_reward_per_layout * size}
-    env = RatEnv(size, MAZES[layout], partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
-    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), use_pygame=FLAGS.eval_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
+    env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.eval_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
     observation, done = env.reset(), False
     agent = SACAgent(
         env,
