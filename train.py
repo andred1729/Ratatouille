@@ -49,6 +49,7 @@ flags.DEFINE_integer('wall_reward_per_layout', -25, 'Reward when hitting wall (n
 flags.DEFINE_integer('center_reward_per_layout', 25, 'reward when reaching center of maze (positive)')
 flags.DEFINE_integer('max_episodes_per_layout', 100, 'number of episodes per 1 unit of layout')
 flags.DEFINE_bool('incremental_training', True, 'whether to gradually step up maximum number of episodes allowed')
+flags.DEFINE_bool('incremental_size_training', False, 'whether to gradually place bot further from maze center')
 flags.DEFINE_integer('version', 2, 'versioning')
 def main(_):
     logging.set_verbosity(logging.INFO)
@@ -62,9 +63,10 @@ def main(_):
         return
 
     rewards_dict = {"wall": FLAGS.wall_reward_per_layout * size, "center": FLAGS.center_reward_per_layout * size}
-    env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
-    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.eval_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count)
-    observation, done = env.reset(), False
+    env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.train_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count, incremental_training=FLAGS.incremental_training, incremental_size_training=FLAGS.incremental_size_training, max_steps = FLAGS.max_steps)
+    eval_env = RatEnv(size, MAZES[layout], max_episode_length=int(FLAGS.max_episodes_per_layout * size), partition_size=FLAGS.partition_size, use_pygame=FLAGS.eval_render, rewards=rewards_dict, lidar_count=FLAGS.lidar_count, incremental_training=False, incremental_size_training=False, max_steps=FLAGS.max_steps)
+    
+    observation, done = env.reset(0), False
     agent = SACAgent(
         env,
         device,
@@ -117,7 +119,7 @@ def main(_):
                 # Handle keyboard events
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
-                        env.reset()
+                        env.reset(0)
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         sys.exit()
@@ -145,16 +147,7 @@ def main(_):
             env.clock_tick(120)
 
         if done:
-            observation, done = env.reset(), False
-            if FLAGS.incremental_training:
-                if i >= int(3 * FLAGS.max_steps/4):
-                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size)
-                elif i >= int(2 * FLAGS.max_steps/4):
-                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.9)
-                elif i >= int(FLAGS.max_steps/4):
-                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.7)
-                else:
-                    env.max_episode_length = int(FLAGS.max_episodes_per_layout * size * 0.5)
+            observation, done = env.reset(i), False
 
         if i >= FLAGS.start_training:
             observation_batch, action_batch, reward_batch, next_observation_batch, discount_mask_batch, is_weights, idxs, probs = replay_buffer.sample(
@@ -193,6 +186,9 @@ def main(_):
             if FLAGS.use_PER:
                 replay_buffer.update_priorities(idxs, td_error_np)
             if (FLAGS.log and i % FLAGS.log_interval == 0):
+                train_info.update({
+                    "eff_size": env.eff_size
+                })
                 for k, v in train_info.items():
                     wandb.log({f"training/{k}": v}, step=i)
 

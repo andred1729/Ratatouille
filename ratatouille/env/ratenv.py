@@ -58,7 +58,10 @@ class RatEnv:
     action_dim: int
     action_range: Tuple[int]
     info: Dict[str, np.float32]
-    def __init__(self, size, text_maze, max_episode_length = 300, partition_size = 10, lidar_count = 4, rewards={"wall": -100, "center": 100}, use_pygame=False):
+    incremental_training: bool
+    incremental_size_training: bool
+    max_steps: int
+    def __init__(self, size, text_maze, max_episode_length = 300, partition_size = 10, lidar_count = 4, rewards={"wall": -100, "center": 100}, use_pygame=False, incremental_training=False, incremental_size_training=False, max_steps=500000):
         # Maze and robot state 
         self.size = size
         self.maze = Maze(size, text_maze, partition_size)
@@ -73,7 +76,11 @@ class RatEnv:
         self.lidar_count = lidar_count
         
         # Episode tracker
-        self.max_episode_length = max_episode_length
+        self.max_possible_episode_length = max_episode_length
+        self.max_steps = max_steps
+        self.incremental_training = incremental_training
+        self.incremental_size_training = incremental_size_training
+        self.eff_size = self.size
         
         # Discounting
         self.discount = 0.99
@@ -82,12 +89,12 @@ class RatEnv:
         self.rewards = rewards
         
         # Initialization work
-        self.reset()
+        self.reset(0)
         self.observation_dim = len(self.state)
         self.use_pygame = use_pygame
         if self.use_pygame:
             self.init_pygame()
-        logging.info(f"Initialized RatEnv: size={self.size}, partition_size={self.partition_size}, max_episode_length={self.max_episode_length}, lidar_count={self.lidar_count}, rewards={self.rewards}, use_pygame={self.use_pygame}")
+        logging.info(f"Initialized RatEnv: size={self.size}, partition_size={self.partition_size}, max_episode_length={self.max_episode_length}, lidar_count={self.lidar_count}, rewards={self.rewards}, use_pygame={self.use_pygame}, eff_size={self.eff_size}")
         
     def _update_state(self):
         self.state = np.array([self.x, self.y, self.theta, self.velocity_left, self.velocity_right] + [self.maze.lidar(self.x, self.y, self.theta + float(y)/self.lidar_count * (2 * pi)) for y in range(self.lidar_count)])
@@ -338,10 +345,8 @@ class RatEnv:
         
         pygame.display.flip()
     
-    def reset(self):
+    def reset(self, step):
         """Reset the simulation to initial state"""
-        self.x = -(self.size / 2 - 0.5)
-        self.y = -(self.size / 2 - 0.5)
         self.theta = pi / 2
         self.velocity_left = 0
         self.velocity_right = 0
@@ -349,6 +354,34 @@ class RatEnv:
         self.is_win = False
         self.current_episode_length = 0
         self.current_episode_discounted_return = 0
+        
+        # episode length incremental training
+        size_list = {
+            6: [4, 6],
+            8: [4, 6, 8],
+            12: [4, 6, 8, 12]
+        }
+        if self.incremental_size_training:
+            size_l = size_list[self.size]
+            minisize = int(self.max_steps/len(size_l))
+            self.eff_size = size_l[int(step/minisize)]
+            logging.info(f'eff_size: {self.eff_size}')
+        
+        self.x = -(self.eff_size / 2 - 0.5)
+        self.y = -(self.eff_size / 2 - 0.5)
+        
+        # size incremental training
+        self.max_episode_length = self.max_possible_episode_length
+        if self.incremental_training:
+            if step >= int(3 * self.max_steps/4):
+                self.max_episode_length = self.max_possible_episode_length
+            elif step >= int(2 * self.max_steps/4):
+                self.max_episode_length = int(self.max_possible_episode_length * 0.9)
+            elif step >= int(self.max_steps/4):
+                self.max_episode_length = int(self.max_possible_episode_length * 0.7)
+            else:
+                self.max_episode_length = int(self.max_possible_episode_length * 0.5)
+
         self._update_state()
         logging.debug("Simulation reset")
         return self.state
