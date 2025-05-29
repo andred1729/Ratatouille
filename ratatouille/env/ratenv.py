@@ -363,8 +363,8 @@ class RatEnv:
         }
         if self.incremental_size_training:
             size_l = size_list[self.size]
-            minisize = int(self.max_steps/len(size_l))
-            self.eff_size = size_l[int(step/minisize)]
+            minisize = floor(self.max_steps/len(size_l))
+            self.eff_size = size_l[floor(step/minisize)]
             logging.info(f'eff_size: {self.eff_size}')
         
         self.x = -(self.eff_size / 2 - 0.5)

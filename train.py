@@ -55,6 +55,7 @@ def main(_):
     logging.set_verbosity(logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
+    logging.info(f"Run name: {FLAGS.run_name}")
     layout = FLAGS.layout
     size = int(layout.split('-')[0])
     set_seed(FLAGS.seed)
@@ -76,6 +77,7 @@ def main(_):
     )
 
     if (FLAGS.load_model_path != ""):
+        print(f"Loading model from: {FLAGS.load_model_path}")
         if not os.path.exists(FLAGS.load_model_path + "/actor.pt"):
             raise FileNotFoundError("No actor model found!")
         if not os.path.exists(FLAGS.load_model_path + "/critic.pt"):

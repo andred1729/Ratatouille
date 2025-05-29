@@ -13,7 +13,7 @@ def evaluate(agent, env: RatEnv, num_episodes, step, save_video = False) -> Dict
     env.init_pygame()
     
     for i in range(num_episodes):
-        observation, done = env.reset(), False
+        observation, done = env.reset(0), False
         info = {}
         while not done:
             env.render(f"Current Step: {step}. Evaluating Episode {i+1}/{num_episodes}.")
