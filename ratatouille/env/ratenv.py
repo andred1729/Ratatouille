@@ -300,9 +300,9 @@ class RatEnv:
         )
         
         # Draw current maze information
-        info_text = self.font.render(f"{added_info} ep_len: {self.current_episode_length} ep_ret: {self.current_episode_discounted_return:.2f}", True, (0, 0, 0))
-        info_rect = info_text.get_rect(topleft=(220,0))
-        self.screen.blit(info_text, info_rect)
+        # info_text = self.font.render(f"{added_info} ep_len: {self.current_episode_length} ep_ret: {self.current_episode_discounted_return:.2f}", True, (0, 0, 0))
+        # info_rect = info_text.get_rect(topleft=(220,0))
+        # self.screen.blit(info_text, info_rect)
         
         # Draw status text if simulation ended
         if not self.runnable:
